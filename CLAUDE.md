@@ -26,10 +26,17 @@ mobile-pr-review-plugin/
 - This repo's `SKILL.md` implements a **draft-or-live posting mode** (defaults to draft/pending review; live posts immediately) resolved via a `--draft`/`--live` invocation flag or a one-time prompt. It's referenced from 6 places in that file (Posting mode section, Safety contract, step 1 header, step 7's API payload, step 8's summary, the Fallback section) — a change to this feature must be applied consistently at all 6, in both SKILL.md copies.
 - No agent, and no step in `SKILL.md`, may use `gh pr review --comment`, `gh pr comment`, or the issues comments API — everything posts through the single `pulls/<number>/reviews` call in step 7, so draft and live comments always land together in one review.
 
+## Patterns
+
+Cutting a release, once the version-bump commit is pushed to `main`:
+1. `claude plugin tag --push -m "mobile-pr-review %s"` from the repo root — creates the `mobile-pr-review--v<version>` git tag (validated against `plugin.json`) and pushes it
+2. `gh release create mobile-pr-review--v<version> --title "v<version>" --notes "..."` — every tagged version gets a corresponding GitHub release, not just a bare tag
+
 ## Anti-patterns
 
 - Don't add an 8th (or remove a) agent without also updating `SKILL.md`'s "Always dispatch" / "Dispatch conditionally" tables in steps 3 and 4 — the agent list there is the actual dispatch contract, not just documentation.
 - Don't bump `plugin.json`'s version without checking whether `README.md`'s description/usage text is still accurate for what changed.
+- Don't bump `plugin.json`'s version without also tagging and publishing a GitHub release for it (see Patterns above) — an untagged version bump has no corresponding release for `/plugin update` users or anyone browsing the repo's release history to land on.
 
 ## Related Context
 
