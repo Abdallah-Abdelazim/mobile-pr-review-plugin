@@ -29,8 +29,8 @@ mobile-pr-review-plugin/
 ## Patterns
 
 Cutting a release, once the version-bump commit is pushed to `main`:
-1. `claude plugin tag --push -m "mobile-pr-review %s"` from the repo root — creates the `mobile-pr-review--v<version>` git tag (validated against `plugin.json`) and pushes it
-2. `gh release create mobile-pr-review--v<version> --title "v<version>" --notes "..."` — every tagged version gets a corresponding GitHub release, not just a bare tag
+1. **The git tag is the plain semver string** — `<major>.<minor>.<patch>` (e.g. `1.3.0`), matching `plugin.json`'s `"version"` exactly. No `v` prefix, no plugin-name prefix. `git tag -a 1.3.0 -m "1.3.0"` then `git push origin 1.3.0`. (`claude plugin tag` defaults to its own `{name}--v{version}` format with no override flag — don't use it here; tag manually instead.)
+2. `gh release create 1.3.0 --title "1.3.0" --notes "..."` — every tagged version gets a corresponding GitHub release, not just a bare tag
 
 ## Anti-patterns
 
