@@ -1,0 +1,12 @@
+{
+  "name": "mobile-pr-review",
+  "version": "1.0.0",
+  "description": "Expert Android & iOS PR review that saves findings as a PENDING (draft) GitHub review. Ships 7 dedicated review agents (bug hunting, silent failures, code quality, 2026 platform deprecations, test coverage, comment accuracy, type design) for Kotlin/Compose, Swift/SwiftUI, and KMP.",
+  "author": {
+    "name": "Abdallah Abdelazim",
+    "url": "https://github.com/Abdallah-Abdelazim"
+  },
+  "repository": "https://github.com/Abdallah-Abdelazim/mobile-pr-review-plugin",
+  "license": "MIT",
+  "keywords": ["android", "ios", "kotlin", "swift", "kmp", "code-review", "pull-request"]
+}
