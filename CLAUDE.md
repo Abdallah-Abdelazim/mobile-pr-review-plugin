@@ -4,9 +4,9 @@ A Claude Code plugin: one skill (`review-mobile-pr`) + 7 bundled subagents for e
 
 ## Intent Layer
 
-**Before modifying code in a subdirectory, read its AGENTS.md first** to understand local patterns and invariants.
+**Before modifying code in a subdirectory, read its CLAUDE.md first** to understand local patterns and invariants.
 
-- **Review knowledge base & orchestration**: `skills/review-mobile-pr/AGENTS.md` - the skill itself (SKILL.md) and the platform review reference docs it and the agents read
+- **Review knowledge base & orchestration**: `skills/review-mobile-pr/CLAUDE.md` - the skill itself (SKILL.md) and the platform review reference docs it and the agents read
 
 No node for `agents/` or `.claude-plugin/` — both are below the token threshold; covered inline below.
 
@@ -16,7 +16,7 @@ mobile-pr-review-plugin/
 │   ├── plugin.json         # name/version/description — this repo IS the plugin
 │   └── marketplace.json    # this repo is also its own single-plugin marketplace (source: "./")
 ├── agents/                  # 7 subagent specs — auto-namespaced mobile-pr-review:mobile-pr-* on install
-└── skills/review-mobile-pr/ # the skill — see its AGENTS.md
+└── skills/review-mobile-pr/ # the skill — see its CLAUDE.md
 ```
 
 ## Key Invariants
@@ -40,4 +40,4 @@ Cutting a release, once the version-bump commit is pushed to `main`:
 
 ## Related Context
 
-- Review knowledge base & the skill itself: `skills/review-mobile-pr/AGENTS.md`
+- Review knowledge base & the skill itself: `skills/review-mobile-pr/CLAUDE.md`
