@@ -12,16 +12,22 @@ Apply to Swift/SwiftUI/UIKit/Xcode files. Only review lines present in the diff 
 6. [Error handling & optionals](#error-handling--optionals)
 7. [Security & privacy](#security--privacy)
 8. [Performance](#performance)
-9. [Testing](#testing)
-10. [Swift quality](#swift-quality)
-11. [Localisation & accessibility](#localisation--accessibility)
-12. [Project / build hygiene](#project--build-hygiene)
+9. [SwiftData](#swiftdata)
+10. [WidgetKit, Live Activities & App Intents](#widgetkit-live-activities--app-intents)
+11. [StoreKit 2](#storekit-2)
+12. [Background tasks (BGTaskScheduler)](#background-tasks-bgtaskscheduler)
+13. [Push & local notifications](#push--local-notifications)
+14. [Swift macros](#swift-macros)
+15. [Testing](#testing)
+16. [Swift quality](#swift-quality)
+17. [Localisation & accessibility](#localisation--accessibility)
+18. [Project / build hygiene](#project--build-hygiene)
 
 ---
 
 ## Deprecations & platform changes (2026)
 
-Context: since **April 28, 2026**, every App Store upload must be built with the **iOS 26 SDK / Xcode 26** or later — no exceptions. Privacy Manifests (`PrivacyInfo.xcprivacy`) are mandatory, and "required reason" APIs need declared reasons. Swift 6 strict concurrency is the compiler default for new modules.
+Context: since **April 28, 2026**, every App Store upload must be built with the **iOS 26 SDK / Xcode 26** or later — no exceptions. Privacy Manifests (`PrivacyInfo.xcprivacy`) are mandatory, and "required reason" APIs need declared reasons. Swift 6 strict concurrency is the compiler default for new modules. iOS 26 unified Apple's OS versioning (iOS/iPadOS/macOS/watchOS/tvOS/visionOS all on the "26" cycle) — treat any codepath still branching on `#available` for the old numbering scheme (iOS 17/18) as still valid, but new `#available(iOS 26, *)` checks are the current baseline.
 
 | Newly added usage of… | Status | Replacement / note | Severity |
 |---|---|---|---|
@@ -42,6 +48,8 @@ Context: since **April 28, 2026**, every App Store upload must be built with the
 | Storyboard/XIB additions for new screens in a SwiftUI-first codebase | Legacy direction | SwiftUI (or the project's established UIKit pattern) | 🟢 |
 | Required-reason APIs (`UserDefaults`, file timestamps, disk space, boot time…) added without a `PrivacyInfo.xcprivacy` entry | Store rejection risk | Declare the reason in the privacy manifest | 🟠 |
 | `@preconcurrency import` added to silence warnings | Escape hatch | Acceptable at true legacy boundaries; flag when used to dodge fixing the module's own isolation | 🟡 |
+| New user-facing feature with a custom in-app UI screen and no `AppIntent` equivalent | Discovery gap, not a hard deprecation | Expose the action via `AppIntent` so it surfaces in Siri/Spotlight/Shortcuts/widgets — App Intents are the default discovery surface as of iOS 26 | 🟡 |
+| `NavigationLink(destination:isActive:)` / other Boolean-driven navigation in new code | Superseded | Value-driven `NavigationStack(path:)` / `NavigationLink(value:)` | 🟢 |
 
 If the diff uses an API you don't recognize or you're unsure whether it's been deprecated since this file was written, search the web before commenting.
 
@@ -61,6 +69,9 @@ The compiler catches many data races, but reviews still catch design errors the 
 - Shared mutable state lives in an `actor` (or is immutable) — not a class with ad-hoc locking
 - No fire-and-forget `Task` that swallows thrown errors — handle or log
 - Race between `Task` start and view state: don't read `self`-mutable state after an `await` without re-validating it
+- **`sending` used instead of blanket `Sendable`** where a non-`Sendable` value only needs to cross an isolation boundary once and isn't touched again by the caller afterward — cheaper and more precise than making the whole type conform to `Sendable`
+- **Region-based isolation relied on for local data flow** (a value created and consumed entirely within one isolation domain) rather than reaching for `@unchecked Sendable` as a shortcut — if a type needs `@unchecked Sendable` to compile, that's usually a sign the data actually crosses isolation domains and needs real protection
+- **Strict-concurrency checking level is consistent across the target**: a module still compiling at `Minimal`/`Targeted` while the rest of the app is Swift 6 language mode gives a false sense of safety at the boundary — flag a new module or package added without matching the app's concurrency mode
 
 ## SwiftUI
 
@@ -74,6 +85,8 @@ The compiler catches many data races, but reviews still catch design errors the 
 - No `GeometryReader` wrapping whole screens when alignment/layout primitives suffice (layout thrash)
 - Animations attached to specific value changes (`.animation(_:value:)`), not ambient
 - Environment values over deep parameter drilling for cross-cutting concerns (theme, locale)
+- **Views conform to `Equatable`** (or wrap an expensive subtree in `EquatableView`) when `body` computation is nontrivial and its inputs rarely change — without it, SwiftUI re-diffs the subtree on every parent update regardless of whether anything relevant changed
+- **`@Bindable` scoped to the object whose properties are actually bound** to a child control — applying `@Bindable` to a passed-in model "just in case" opts the whole subtree into observation it doesn't need, and can widen invalidation beyond what actually changed
 
 ## UIKit
 
@@ -117,6 +130,53 @@ The compiler catches many data races, but reviews still catch design errors the 
 - `LazyVStack`/`LazyHStack` (or list virtualization) for long scrolling content
 - Repeated `DateFormatter`/`NumberFormatter`/`JSONDecoder` creation hoisted — they're expensive
 - String concatenation in loops replaced with efficient building where it matters
+
+## SwiftData
+
+- Any breaking `@Model` change (property added/removed/retyped, relationship reshaped) ships a `SchemaMigrationPlan` stage — not left to lightweight-migration inference when the change isn't actually lightweight-compatible (renamed properties, split/merged properties, and type changes generally aren't)
+- Non-trivial migrations use `MigrationStage.custom` with `willMigrate`/`didMigrate` closures to move/backfill data — a `.lightweight` stage silently drops data it can't infer a mapping for
+- `@Attribute(.unique)` declared on any field the domain actually requires unique — its absence lets duplicate rows accumulate silently
+- Relationships declare `deleteRule` explicitly (`.cascade` / `.nullify` / `.deny`) — the implicit default (`.nullify`) is rarely correct for an owns-its-children relationship, and an unreviewed default can orphan or silently null out data
+- Multi-step or multi-object writes that must be atomic happen inside a single `save()` — not several partial saves that can leave inconsistent state if the app is killed between them
+- Background writes use their own `ModelContext`/`ModelActor` — the main-actor `modelContext` from the environment is never passed across threads and mutated concurrently
+
+## WidgetKit, Live Activities & App Intents
+
+- A new user-facing action exposed only through a custom in-app screen, with no `AppIntent` equivalent — App Intents are the default discovery surface (Siri, Spotlight, Shortcuts, widgets) as of iOS 26; flag the missing intent as a discoverability gap, not just style
+- Interactive widget controls use `Button(intent:)` / `Toggle(isOn:intent:)` backed by an `AppIntent` whose `perform()` runs inside the widget extension — no attempt to launch the host app or read app-process-only state that isn't available to the extension
+- `AppIntent.perform()` bodies stay fast and self-contained, with bounded work — the extension runs under a tight time budget and unbounded network/disk calls risk the system killing it mid-execution
+- Live Activity push-to-start payloads and periodic updates stay under the system's payload size budget — an oversized payload fails **silently** (telemetry only, no crash or error), so "the Live Activity never updates" should be triaged as a payload-size bug first
+- `ActivityAuthorizationInfo().areActivitiesEnabled` checked before starting an `Activity` — never assumed to be permitted
+- `TimelineProvider`/`AppIntentTimelineProvider` entries computed cheaply; no blocking network call in `snapshot()`/`timeline()` without a placeholder fallback for the case it can't complete in time
+
+## StoreKit 2
+
+- Every transaction verified via `VerificationResult`/`checkVerified` **before** entitlement is granted — an unverified transaction is never trusted
+- `Transaction.updates` (and `currentEntitlements` at launch) observed by a long-running `Task` started at app launch — checking only in response to a user-initiated purchase misses renewals, refunds, and Family Sharing changes made outside the app
+- Every transaction calls `transaction.finish()` once its entitlement is granted — an unfinished transaction replays on every subsequent launch
+- Refunds and revocations handled (`Transaction.revocationDate`/`revocationReason`) by removing the entitlement, not just granting it once and forgetting
+- Subscription state read from `Product.SubscriptionInfo.status`, not inferred solely from the existence of a past transaction, which doesn't reflect current renewal/grace-period/billing-retry state
+
+## Background tasks (BGTaskScheduler)
+
+- `BGTaskScheduler.shared.register(...)` called unconditionally during app launch, before `application(_:didFinishLaunchingWithOptions:)` returns — a registration added later, or gated behind a condition, silently no-ops for that task identifier
+- Submitted requests declare constraints (`requiresNetworkConnectivity`, `requiresExternalPower`) and a realistic `earliestBeginDate` that actually match what the task needs — an always-immediate, no-constraint request gets deprioritized by the system scheduler
+- The task's `expirationHandler` cancels in-flight work and calls `task.setTaskCompleted(success:)` — a task that never signals completion stops the system from scheduling that identifier again
+- Long-running background work is chunked so it can checkpoint progress — background execution time is never guaranteed to run to completion
+
+## Push & local notifications
+
+- Authorization requested with only the options actually used (`.alert`, `.sound`, `.badge`, `.provisional`) — not a blanket request with no context for why
+- `UNUserNotificationCenterDelegate` assigned before the first notification could plausibly arrive (typically in `application(_:didFinishLaunchingWithOptions:)`) — assigning it later misses early notifications
+- Notification content mutated via `UNNotificationServiceExtension` only when the payload actually sets `mutable-content`
+- Deep-link / user-info payloads carried on a notification validated before driving navigation — same rule as any other deep link; a malformed or spoofed payload shouldn't drive privileged navigation
+- Category/action identifiers handled exhaustively in the delegate's `didReceive` — a new action identifier added later should hit a defined fallback, not silently do nothing
+
+## Swift macros
+
+- Custom macro expansions follow this file's other rules just like hand-written code — a macro that generates a force-unwrap, a retain cycle, or a `Sendable`-unsafe capture is worse than the equivalent hand-written bug because it's invisible at the call site
+- A PR adding or changing a macro's expansion reviewed via its expanded output (Xcode's "Expand Macro," or the compiler's generated-code diagnostic), not approved on the macro definition's intent alone
+- Property-wrapper-style macros (`@Model`, `@Observable`, `@AppStorage`) not stacked in combinations the macro isn't documented to support — undefined interactions between macros are a common source of silent data loss or lost observation
 
 ## Testing
 
