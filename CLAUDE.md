@@ -30,13 +30,14 @@ mobile-pr-review-plugin/
 
 Cutting a release, once the version-bump commit is pushed to `main`:
 1. **The git tag is the plain semver string** — `<major>.<minor>.<patch>` (e.g. `1.3.0`), matching `plugin.json`'s `"version"` exactly. No `v` prefix, no plugin-name prefix. `git tag -a 1.3.0 -m "1.3.0"` then `git push origin 1.3.0`. (`claude plugin tag` defaults to its own `{name}--v{version}` format with no override flag — don't use it here; tag manually instead.)
-2. `gh release create 1.3.0 --title "1.3.0" --notes "..."` — every tagged version gets a corresponding GitHub release, not just a bare tag
+
+That's it — **tag only, no GitHub release**. Don't run `gh release create`.
 
 ## Anti-patterns
 
 - Don't add an 8th (or remove a) agent without also updating `SKILL.md`'s "Always dispatch" / "Dispatch conditionally" tables in steps 3 and 4 — the agent list there is the actual dispatch contract, not just documentation.
 - Don't bump `plugin.json`'s version without checking whether `README.md`'s description/usage text is still accurate for what changed.
-- Don't bump `plugin.json`'s version without also tagging and publishing a GitHub release for it (see Patterns above) — an untagged version bump has no corresponding release for `/plugin update` users or anyone browsing the repo's release history to land on.
+- Don't bump `plugin.json`'s version without also creating the matching git tag (see Patterns above) — an untagged version bump has nothing for `/plugin update` or a future `git checkout <version>` to land on. Don't create a GitHub release for it, though — this repo's releases are tags only.
 
 ## Related Context
 
