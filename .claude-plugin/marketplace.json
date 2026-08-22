@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "mobile-pr-review",
-      "description": "Expert Android & iOS PR review that saves findings as a PENDING (draft) GitHub review. Ships 7 dedicated review agents for Kotlin/Compose, Swift/SwiftUI, and KMP.",
+      "description": "Expert Android & iOS PR review. Defaults to a PENDING (draft) GitHub review, or posts live on request. Ships 7 dedicated review agents for Kotlin/Compose, Swift/SwiftUI, and KMP.",
       "source": "./",
       "category": "code-review"
     }

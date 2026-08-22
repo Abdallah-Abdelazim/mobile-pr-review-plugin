@@ -1,12 +1,12 @@
 ---
 name: review-mobile-pr
 model: claude-sonnet-5
-description: Expert Android & iOS PR review that saves all findings as a PENDING (draft) GitHub review — nothing is posted publicly until manually submitted. Use whenever the user asks to review, audit, or give feedback on a pull request touching Android (Kotlin, Jetpack Compose, Gradle), iOS (Swift, SwiftUI, UIKit), or KMP code — including phrases like "review this PR", "check my PR", "draft review", or a GitHub PR URL for a mobile repo. Reviews against up-to-date (2026) platform deprecations, Swift 6 / Compose best practices, code smells (unused code, dead code, poor structure), and software-engineering excellence standards.
+description: Expert Android & iOS PR review. Defaults to saving findings as a PENDING (draft) GitHub review — invisible until manually submitted — but will post them live instead if the user asks or says so when prompted. Use whenever the user asks to review, audit, or give feedback on a pull request touching Android (Kotlin, Jetpack Compose, Gradle), iOS (Swift, SwiftUI, UIKit), or KMP code — including phrases like "review this PR", "check my PR", "draft review", or a GitHub PR URL for a mobile repo. Reviews against up-to-date (2026) platform deprecations, Swift 6 / Compose best practices, code smells (unused code, dead code, poor structure), and software-engineering excellence standards.
 ---
 
 # Mobile PR Review — Expert Android & iOS Engineer
 
-Reviews a GitHub PR through the lens of a **senior mobile engineer** (Android, iOS, and KMP) and saves all findings as a **pending (draft) review** — comments are visible only to you in the GitHub UI until you choose to submit them.
+Reviews a GitHub PR through the lens of a **senior mobile engineer** (Android, iOS, and KMP) and, by default, saves all findings as a **pending (draft) review** — comments are visible only to you in the GitHub UI until you choose to submit them. The user can ask for findings to go live immediately instead; see "Posting mode" below.
 
 This skill ships in the `mobile-pr-review` plugin with its own dedicated review agents (`agents/mobile-pr-*.md`) — it does not depend on any other plugin. Dispatch each by its fully-qualified `mobile-pr-review:mobile-pr-*` name. The review runs as a set of specialized agents dispatched in parallel, each a self-contained mobile-review specialist:
 
@@ -22,22 +22,39 @@ This skill ships in the `mobile-pr-review` plugin with its own dedicated review 
 
 See step 3 for how each is dispatched and step 4 for the deprecation pass specifically.
 
+## 📮 Posting mode
+
+Before doing anything else, work out how the findings should be posted:
+
+- **Draft (the default)** — saved as a pending review, invisible to everyone but the author of the review until they open the PR and submit it themselves.
+- **Live** — posted the moment this skill finishes, visible to everyone on the PR immediately.
+
+Resolve this, in order:
+
+1. **An explicit flag in the invocation** (see Usage below: `--live`/`--now` selects Live, `--draft` selects Draft) — skip the question if one is present.
+2. **Otherwise, ask once, before pre-flight:** *"Should I hold these findings as a private draft you review and submit yourself, or post them live the moment I'm done? Draft is the default — just say so if you'd rather they go live right away."* Treat silence, "either," "you choose," or any other non-committal answer as **Draft**.
+
+Carry the resolved mode through the rest of the workflow — it decides the `event` field in step 7, the header in step 1, and the wording of the summary in step 8.
+
 ## ⛔ Safety contract (read this first)
 
-- **Nothing is posted publicly.** The entire point of this skill is that zero content is visible to anyone else until you manually submit the review in the GitHub web UI.
-- **Never use `event: APPROVE`, `event: REQUEST_CHANGES`, or `event: COMMENT`** — all three submit immediately and are visible to everyone. Only a pending review (no `event` field) is acceptable.
-- **Never use `gh pr review --comment`, `gh pr comment`, or the issues comments API** — these post immediately with no draft state.
-- **Leave `body` empty (`""`)** — a non-empty body in a PENDING review becomes a visible summary comment the moment you submit, which may not reflect your final opinion.
+- **Draft is the safe default and stays invisible until the human submits it.** Only switch to Live when the posting mode above actually resolved to Live — never post live "just in case" or because it seemed faster.
+- **Draft mode:** never use `event: APPROVE`, `event: REQUEST_CHANGES`, or `event: COMMENT` — all three submit immediately. Omit the `event` field entirely; that's what keeps the review pending.
+- **Live mode:** use `event: COMMENT` only. Never `APPROVE` or `REQUEST_CHANGES` — this skill reports findings, it doesn't approve or block a PR, regardless of posting mode.
+- **Never use `gh pr review --comment`, `gh pr comment`, or the issues comments API**, in either mode — always the single `pulls/<number>/reviews` call in step 7, so every comment lands together in one review.
+- **Leave `body` empty (`""`)** in both modes — a non-empty body becomes a visible summary comment the moment the review is submitted (Draft) or posted (Live), and may not reflect the final, cross-checked set of findings.
 - Comment on diff `+` lines, or on a context/`-`-adjacent line that this diff left stale or orphaned (see "stranded artifacts from incomplete deletions" — caught by `mobile-pr-review:mobile-pr-comment-analyzer` and `mobile-pr-review:mobile-pr-code-quality-reviewer`) — but don't flag pre-existing code the diff never touched.
 - Use the authenticated GitHub account shown in `gh auth status`.
-- **If the PENDING API call fails, do not fall back to any public comment.** Report the error in the terminal and tell the user to post manually. A failed silent draft is better than an accidental public post.
+- **If the reviews API call fails, do not fall back to any other posting mechanism, in either mode.** Report the error in the terminal and tell the user to post manually. A failed post is better than an accidental or malformed one.
 
 ## Usage
 
-Invoke with a PR URL or number:
+Invoke with a PR URL or number, optionally naming a posting mode to skip the prompt:
 ```
 /review-mobile-pr https://github.com/<org>/<repo>/pull/<number>
-/review-mobile-pr <number>   # when already inside the repo
+/review-mobile-pr <number>          # when already inside the repo; asks Draft-or-Live before posting
+/review-mobile-pr <number> --live   # skip the question — post live immediately
+/review-mobile-pr <number> --draft  # skip the question — save as a pending review (the default anyway)
 ```
 
 ## Reference files (read the relevant ones before reviewing)
@@ -55,6 +72,8 @@ These files live at `${CLAUDE_PLUGIN_ROOT}/skills/review-mobile-pr/references/` 
 
 ### 1. Pre-flight
 
+Resolve the posting mode first (see "Posting mode" above) if it isn't already clear from the invocation.
+
 ```bash
 gh auth status   # must succeed — stop if not authenticated
 ```
@@ -71,9 +90,9 @@ gh api repos/<owner>/<repo>/issues/<number>/comments --paginate  # existing top-
 
 Keep the existing comments on hand — you'll cross-check your findings against them before posting (step 6).
 
-Show header:
+Show header (with the resolved posting mode):
 ```
-🔍 Mobile PR Review (draft)
+🔍 Mobile PR Review (draft | live)
 📋 PR #<number>: <title>
 🔀 <base> ← <head>
 📂 Files changed: <count>
@@ -145,15 +164,13 @@ For each finding, look for existing comments **on the same file and the same lin
 
 When in doubt whether two comments describe the same root cause, treat them as merely "close" (post + reference) rather than "same" (drop) — a false duplicate-skip silently loses a finding, while a false "close" match only costs the author one extra sentence of context.
 
-### 7. Post findings as a PENDING review
+### 7. Post findings
 
-**CRITICAL: Do not post anything that is immediately visible.** The only acceptable outcome is a pending (draft) review that sits invisible in the GitHub UI until manually submitted.
+- **No top-level PR comments** (`gh pr review --comment`, `gh pr comment`, `gh api .../issues/.../comments`) — in either mode, these post immediately and bypass the one-shot review call below
+- **No review body/summary** — leave the `body` field empty (`""`) in both modes
+- **Inline comments only**, scoped to specific diff lines
 
-- **No top-level PR comments** (`gh pr review --comment`, `gh pr comment`, `gh api .../issues/.../comments`) — these post immediately and are visible to everyone
-- **No review body/summary** — leave the `body` field empty (`""`) so no overall comment appears on submission
-- **Inline comments only**, scoped to specific diff lines, saved as pending
-
-Use the GitHub API:
+Use the GitHub API — the payload is identical in both modes except for one field:
 
 ```bash
 gh api repos/<owner>/<repo>/pulls/<number>/reviews \
@@ -173,9 +190,11 @@ gh api repos/<owner>/<repo>/pulls/<number>/reviews \
 EOF
 ```
 
-**Do NOT include an `event` field.** Omitting `event` is what tells the GitHub API to save the review as pending/draft. Passing `"event": "PENDING"` returns a 422 error. Passing any other event value (`APPROVE`, `REQUEST_CHANGES`, `COMMENT`) submits immediately and is visible to everyone.
+**Draft mode: send the payload exactly as above, with no `event` field.** Omitting `event` is what tells the GitHub API to save the review as pending — invisible until manually submitted. Passing `"event": "PENDING"` returns a 422 error.
 
-For a multi-line finding, add `"start_line": <first line>` and `"start_side": "RIGHT"` alongside `line` (the last line of the range).
+**Live mode: add `"event": "COMMENT"` to the top-level object** (alongside `"body"` and `"comments"`). This posts the review — and every inline comment in it — the moment the call succeeds. Never pass `APPROVE` or `REQUEST_CHANGES` here; this skill reports findings, it doesn't gate the PR.
+
+For a multi-line finding, add `"start_line": <first line>` and `"start_side": "RIGHT"` alongside `line` (the last line of the range) — in either mode.
 
 ### Comment format
 
@@ -224,10 +243,11 @@ Tone: findings, not verdicts. State the problem and its consequence; don't lectu
 
 ### 8. Summary
 
-After posting, print:
+After posting, print (heading depends on the resolved posting mode):
 
 ```
-✅ Draft review saved (NOT submitted)
+✅ Draft review saved (NOT submitted)          [Draft mode]
+✅ Review posted — visible on the PR now       [Live mode]
 
 Findings:
   🔴 Critical: <n>
@@ -248,16 +268,17 @@ By category:
 
 Review URL: https://github.com/<owner>/<repo>/pull/<number>
 
-The review is pending. Open the PR in GitHub to inspect, edit,
+The review is pending. Open the PR in GitHub to inspect, edit,       [Draft mode]
 or submit your comments when ready.
+The review is live — comments are already visible on the PR.        [Live mode]
 ```
 
 ## Fallback (API call fails)
 
-Do **not** fall back to `gh pr review --comment` or any other posting mechanism. Instead, print the full findings to the terminal so the user can review and post manually if they choose:
+Do **not** fall back to `gh pr review --comment` or any other posting mechanism, in either mode. Instead, print the full findings to the terminal so the user can review and post manually if they choose:
 
 ```
-❌ Could not create pending review via API.
+❌ Could not create the review via API.
 Error: <error message>
 
 Findings are printed below for your reference.

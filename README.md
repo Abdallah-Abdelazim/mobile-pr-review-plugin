@@ -1,6 +1,6 @@
 # mobile-pr-review
 
-A [Claude Code](https://claude.com/claude-code) plugin for expert Android & iOS pull request review. It saves every finding as a **PENDING (draft) GitHub review** — nothing is ever posted publicly until you manually submit it.
+A [Claude Code](https://claude.com/claude-code) plugin for expert Android & iOS pull request review. By default it saves every finding as a **PENDING (draft) GitHub review** — invisible until you manually submit it — but you can ask it to post live instead, either up front or when it asks you.
 
 Reviews Kotlin/Jetpack Compose/Gradle, Swift/SwiftUI/UIKit, and Kotlin Multiplatform (KMP) code against up-to-date (2026) platform deprecations, Swift 6 / Compose best practices, code smells, and software-engineering excellence standards.
 
@@ -41,16 +41,19 @@ Restart Claude Code (or start a new session) so it picks up the new skill and ag
 
 ```
 /review-mobile-pr https://github.com/<org>/<repo>/pull/<number>
-/review-mobile-pr <number>   # when already inside the repo
+/review-mobile-pr <number>          # when already inside the repo; asks Draft-or-Live before posting
+/review-mobile-pr <number> --live   # skip the question — post live immediately
+/review-mobile-pr <number> --draft  # skip the question — save as a pending review (the default anyway)
 ```
 
 Requires the [GitHub CLI](https://cli.github.com/) (`gh`) authenticated against the target repo (`gh auth status`).
 
 ## Safety contract
 
-- Nothing is posted publicly — every comment is saved as part of a **pending** GitHub review, visible only to you until you open the PR and submit it yourself.
-- The skill never uses `gh pr review --comment`, `gh pr comment`, or any GitHub write API call that posts immediately.
-- If the pending-review API call fails, it prints the findings to your terminal instead of falling back to any public posting mechanism.
+- **Draft by default.** Unless you explicitly asked for Live — via `--live` or by answering the prompt — every comment is saved as part of a **pending** GitHub review, visible only to you until you open the PR and submit it yourself.
+- **Live posts everything at once**, the moment the review finishes — still just comments, never an approval or a change request; this skill reports findings, it doesn't gate the PR.
+- The skill never uses `gh pr review --comment`, `gh pr comment`, or any GitHub write API call that bypasses the single review it builds.
+- If the API call fails, it prints the findings to your terminal instead of falling back to any other posting mechanism, in either mode.
 
 ## Installing this repo's plugin for others
 
