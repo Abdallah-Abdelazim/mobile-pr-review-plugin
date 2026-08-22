@@ -1,8 +1,8 @@
 # mobile-pr-review
 
-A [Claude Code](https://claude.com/claude-code) plugin for expert Android & iOS pull request review. By default it saves every finding as a **PENDING (draft) GitHub review** — invisible until you manually submit it — but you can ask it to post live instead, either up front or when it asks you.
+A [Claude Code](https://claude.com/claude-code) plugin for expert Android, iOS & Kotlin Multiplatform (KMP) pull request review. By default it saves every finding as a **PENDING (draft) GitHub review** — invisible until you manually submit it — but you can ask it to post live instead, either up front or when it asks you.
 
-Reviews Kotlin/Jetpack Compose/Gradle, Swift/SwiftUI/UIKit, and Kotlin Multiplatform (KMP) code against up-to-date (2026) platform deprecations, Swift 6 / Compose best practices, code smells, and software-engineering excellence standards.
+Reviews Kotlin/Jetpack Compose/Gradle, Swift/SwiftUI/UIKit, and KMP code — including shared **Compose Multiplatform** UI — against up-to-date (2026) platform deprecations, Swift 6 / Compose best practices, code smells, and software-engineering excellence standards.
 
 ## What's inside
 
@@ -14,10 +14,12 @@ Reviews Kotlin/Jetpack Compose/Gradle, Swift/SwiftUI/UIKit, and Kotlin Multiplat
   | `mobile-pr-bug-hunter` | Correctness — forgotten call sites, unhappy paths, wrong/non-exhaustive logic, contract mismatches, concurrency bugs |
   | `mobile-pr-silent-failure-hunter` | Swallowed exceptions, unjustified fallbacks, overly broad catches |
   | `mobile-pr-code-quality-reviewer` | Code smells, dead/unused code, duplication, SOLID/naming/PR-scope, platform checklist backstop |
-  | `mobile-pr-deprecation-scanner` | APIs deprecated/superseded/removed as of 2026 (Android 16/API 36, Swift 6, iOS 17–26) |
+  | `mobile-pr-deprecation-scanner` | APIs deprecated/superseded/removed as of 2026 (Android 16/17 — API 36/37, Swift 6, iOS 17–26) |
   | `mobile-pr-test-analyzer` | Test coverage gaps and tests that don't exercise what they claim to |
   | `mobile-pr-comment-analyzer` | Comment/doc accuracy, stranded artifacts from incomplete deletions |
   | `mobile-pr-type-design-analyzer` | Type encapsulation and invariant expression (Kotlin sealed classes/data classes, Swift structs/enums/protocols) |
+
+Every agent reads a platform reference checklist matching the diff — `android.md`, `ios.md`, or `kmp.md` — the last of which includes a dedicated **Compose Multiplatform** section (shared Composables, `expect`/`actual` UI, CMP resources, cross-platform navigation, iOS `ComposeUIViewController` embedding).
 
 No third-party plugin dependency — every agent this skill needs ships in this repo.
 
