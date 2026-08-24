@@ -57,17 +57,6 @@ Requires the [GitHub CLI](https://cli.github.com/) (`gh`) authenticated against 
 - The skill never uses `gh pr review --comment`, `gh pr comment`, or any GitHub write API call that bypasses the single review it builds.
 - If the API call fails, it prints the findings to your terminal instead of falling back to any other posting mechanism, in either mode.
 
-## Installing this repo's plugin for others
-
-Anyone can pick up this plugin the same way:
-
-```
-/plugin marketplace add Abdallah-Abdelazim/mobile-pr-review-plugin
-/plugin install mobile-pr-review@mobile-pr-review
-```
-
-To update to a newer version after a push, run `/plugin marketplace update mobile-pr-review` then reinstall, or use `/plugin update` if your Claude Code version supports it.
-
 ## License
 
 MIT — see [LICENSE](./LICENSE).
