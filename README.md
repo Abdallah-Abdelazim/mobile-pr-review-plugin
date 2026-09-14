@@ -7,21 +7,21 @@ Reviews Kotlin/Jetpack Compose/Gradle, Swift/SwiftUI/UIKit, and KMP code — inc
 ## What's inside
 
 - **1 skill** — `review-mobile-pr`, the orchestrator. Invoke it with a PR URL or number and it runs the whole review end to end.
-- **7 dedicated subagents**, dispatched in parallel, each a self-contained specialist:
+- **7 built-in review passes**, defined inline in the skill and dispatched in parallel, each a self-contained specialist:
 
-  | Agent | Focus |
+  | Pass | Focus |
   |---|---|
-  | `mobile-pr-bug-hunter` | Correctness — forgotten call sites, unhappy paths, wrong/non-exhaustive logic, contract mismatches, concurrency bugs |
-  | `mobile-pr-silent-failure-hunter` | Swallowed exceptions, unjustified fallbacks, overly broad catches |
-  | `mobile-pr-code-quality-reviewer` | Code smells, dead/unused code, duplication, SOLID/naming/PR-scope, platform checklist backstop |
-  | `mobile-pr-deprecation-scanner` | APIs deprecated/superseded/removed as of 2026 (Android 16/17 — API 36/37, Swift 6, iOS 17–26) |
-  | `mobile-pr-test-analyzer` | Test coverage gaps and tests that don't exercise what they claim to |
-  | `mobile-pr-comment-analyzer` | Comment/doc accuracy, stranded artifacts from incomplete deletions |
-  | `mobile-pr-type-design-analyzer` | Type encapsulation and invariant expression (Kotlin sealed classes/data classes, Swift structs/enums/protocols) |
+  | Bug Hunter | Correctness — forgotten call sites, unhappy paths, wrong/non-exhaustive logic, contract mismatches, concurrency bugs |
+  | Silent-Failure Hunter | Swallowed exceptions, unjustified fallbacks, overly broad catches |
+  | Code-Quality Reviewer | Code smells, dead/unused code, duplication, SOLID/naming/PR-scope, platform checklist backstop |
+  | Deprecation Scanner | APIs deprecated/superseded/removed as of 2026 (Android 16/17 — API 36/37, Swift 6, iOS 17–26) |
+  | Test Analyzer | Test coverage gaps and tests that don't exercise what they claim to |
+  | Comment Analyzer | Comment/doc accuracy, stranded artifacts from incomplete deletions |
+  | Type-Design Analyzer | Type encapsulation and invariant expression (Kotlin sealed classes/data classes, Swift structs/enums/protocols) |
 
-Every agent reads a platform reference checklist matching the diff — `android.md`, `ios.md`, or `kmp.md` — the last of which includes a dedicated **Compose Multiplatform** section (shared Composables, `expect`/`actual` UI, CMP resources, cross-platform navigation, iOS `ComposeUIViewController` embedding).
+Every pass reads a platform reference checklist matching the diff — `android.md`, `ios.md`, or `kmp.md` — the last of which includes a dedicated **Compose Multiplatform** section (shared Composables, `expect`/`actual` UI, CMP resources, cross-platform navigation, iOS `ComposeUIViewController` embedding).
 
-No third-party plugin dependency — every agent this skill needs ships in this repo.
+No separate agent files and no third-party plugin dependency — everything this skill needs, including every review pass's prompt, ships inline in this one skill.
 
 ## Install
 
@@ -43,9 +43,10 @@ Restart Claude Code (or start a new session) so it picks up the new skill and ag
 
 ```
 /review-mobile-pr https://github.com/<org>/<repo>/pull/<number>
-/review-mobile-pr <number>          # when already inside the repo; asks Draft-or-Live before posting
-/review-mobile-pr <number> --live   # skip the question — post live immediately
-/review-mobile-pr <number> --draft  # skip the question — save as a pending review (the default anyway)
+/review-mobile-pr <number>                     # when already inside the repo; asks Draft-or-Live before posting
+/review-mobile-pr <number> --live              # skip the question — post live immediately
+/review-mobile-pr <number> --draft             # skip the question — save as a pending review (the default anyway)
+/review-mobile-pr <number> --apply-safe-fixes  # also apply narrow, safe fixes directly instead of just commenting on them
 ```
 
 Requires the [GitHub CLI](https://cli.github.com/) (`gh`) authenticated against the target repo (`gh auth status`).
@@ -56,6 +57,7 @@ Requires the [GitHub CLI](https://cli.github.com/) (`gh`) authenticated against 
 - **Live posts everything at once**, the moment the review finishes — still just comments, never an approval or a change request; this skill reports findings, it doesn't gate the PR.
 - The skill never uses `gh pr review --comment`, `gh pr comment`, or any GitHub write API call that bypasses the single review it builds.
 - If the API call fails, it prints the findings to your terminal instead of falling back to any other posting mechanism, in either mode.
+- **The skill never edits your repo's files, unless you explicitly pass `--apply-safe-fixes`.** Even then, it only ever auto-applies a narrow class of unambiguous, single-line-grade fixes — anything else still becomes a review comment for you to act on yourself.
 
 ## License
 

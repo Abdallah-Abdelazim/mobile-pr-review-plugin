@@ -1,30 +1,30 @@
 # mobile-pr-review (plugin repo)
 
-A Claude Code plugin: one skill (`review-mobile-pr`) + 7 bundled subagents for expert Android/iOS/KMP PR review, packaged as its own installable marketplace.
+A Claude Code plugin: one skill (`review-mobile-pr`) that inlines all 7 of its review-pass prompts directly in `SKILL.md` — no separate agent files, no plugin dependency — packaged as its own installable marketplace.
 
 ## Intent Layer
 
 **Before modifying code in a subdirectory, read its CLAUDE.md first** to understand local patterns and invariants.
 
-- **Review knowledge base & orchestration**: `skills/review-mobile-pr/CLAUDE.md` - the skill itself (SKILL.md) and the platform review reference docs it and the agents read
+- **Review knowledge base & orchestration**: `skills/review-mobile-pr/CLAUDE.md` - the skill itself (SKILL.md, including its inline review-pass prompts) and the platform review reference docs it reads
 
-No node for `agents/` or `.claude-plugin/` — both are below the token threshold; covered inline below.
+No node for `.claude-plugin/` — below the token threshold; covered inline below.
 
 ```
 mobile-pr-review-plugin/
 ├── .claude-plugin/
 │   ├── plugin.json         # name/version/description — this repo IS the plugin
 │   └── marketplace.json    # this repo is also its own single-plugin marketplace (source: "./")
-├── agents/                  # 7 subagent specs — auto-namespaced mobile-pr-review:mobile-pr-* on install
 └── skills/review-mobile-pr/ # the skill — see its CLAUDE.md
 ```
 
 ## Key Invariants
 
-- `plugin.json`'s `"name"` field must stay `mobile-pr-review` — it's baked into `marketplace.json`'s plugin entry, the README's install commands, and every `mobile-pr-review:mobile-pr-*` agent reference inside `skills/review-mobile-pr/SKILL.md`. Renaming it breaks all three.
-- Every file in `agents/` here must stay byte-identical to its counterpart at `~/.claude/agents/mobile-pr-*.md` (the maintainer's personal global copies, used to test changes locally before they're packaged). Editing one without the other silently desyncs local testing from what ships. Same rule for `skills/review-mobile-pr/{SKILL.md,references/*.md}` vs. `~/.claude/skills/review-mobile-pr/{SKILL.md,references/*.md}` — except the two SKILL.md copies intentionally diverge on exactly two things: this repo's copy uses `mobile-pr-review:mobile-pr-*` namespaced agent names and `${CLAUDE_PLUGIN_ROOT}`-relative reference paths; the personal copy uses bare `mobile-pr-*` names and `~/.claude/skills/...`-absolute paths. Any other divergence between the two SKILL.md copies is a bug.
-- This repo's `SKILL.md` implements a **draft-or-live posting mode** (defaults to draft/pending review; live posts immediately) resolved via a `--draft`/`--live` invocation flag or a one-time prompt. It's referenced from 6 places in that file (Posting mode section, Safety contract, step 1 header, step 7's API payload, step 8's summary, the Fallback section) — a change to this feature must be applied consistently at all 6, in both SKILL.md copies.
-- No agent, and no step in `SKILL.md`, may use `gh pr review --comment`, `gh pr comment`, or the issues comments API — everything posts through the single `pulls/<number>/reviews` call in step 7, so draft and live comments always land together in one review.
+- `plugin.json`'s `"name"` field must stay `mobile-pr-review` — it's baked into `marketplace.json`'s plugin entry and the README's install commands. Renaming it breaks both.
+- `skills/review-mobile-pr/{SKILL.md,references/*.md}` should stay in sync with any personal global mirror at `~/.claude/skills/review-mobile-pr/{SKILL.md,references/*.md}` the maintainer keeps for local testing before packaging — as of this writing no such mirror exists on disk, so there's nothing to sync today, but re-create it in sync if one is added later. (There is no longer an `agents/` ↔ `~/.claude/agents/` parity to maintain — the 7 review passes are defined only once, inline in `SKILL.md`'s "Review passes" section.)
+- This repo's `SKILL.md` implements a **draft-or-live posting mode** (defaults to draft/pending review; live posts immediately) resolved via a `--draft`/`--live` invocation flag or a one-time prompt. It's referenced from 6 places in that file (Posting mode section, Safety contract, step 1 header, step 8's API payload, step 9's summary, the Fallback section) — a change to this feature must be applied consistently at all 6.
+- `SKILL.md` also implements an opt-in **fix mode** (`--apply-safe-fixes`) that lets the orchestrator itself apply narrow, suggestion-block-grade fixes directly via `Edit`, instead of only posting comments — the only place in this skill anything ever touches the target repo's files. Every dispatched review pass stays read-only; only step 7 of `SKILL.md`'s workflow may edit, and only for a finding it re-verifies immediately beforehand.
+- No review pass, and no step in `SKILL.md`, may use `gh pr review --comment`, `gh pr comment`, or the issues comments API — everything posts through the single `pulls/<number>/reviews` call in step 8, so draft and live comments always land together in one review.
 
 ## Patterns
 
@@ -35,7 +35,7 @@ That's it — **tag only, no GitHub release**. Don't run `gh release create`.
 
 ## Anti-patterns
 
-- Don't add an 8th (or remove a) agent without also updating `SKILL.md`'s "Always dispatch" / "Dispatch conditionally" tables in steps 3 and 4 — the agent list there is the actual dispatch contract, not just documentation.
+- Don't add an 8th (or remove a) review pass without also updating `SKILL.md`'s "Always dispatch" / "Dispatch conditionally" tables in steps 3 and 4, its own prompt block in the "Review passes" section, and the summary table near the top — the dispatch tables are the actual dispatch contract, not just documentation.
 - Don't bump `plugin.json`'s version without checking whether `README.md`'s description/usage text is still accurate for what changed.
 - Don't bump `plugin.json`'s version without also creating the matching git tag (see Patterns above) — an untagged version bump has nothing for `/plugin update` or a future `git checkout <version>` to land on. Don't create a GitHub release for it, though — this repo's releases are tags only.
 

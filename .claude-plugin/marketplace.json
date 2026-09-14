@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "mobile-pr-review",
-  "description": "Marketplace for the mobile-pr-review plugin: expert Android & iOS PR review with 7 dedicated review agents.",
+  "description": "Marketplace for the mobile-pr-review plugin: expert Android & iOS PR review with 7 built-in review passes.",
   "owner": {
     "name": "Abdallah Abdelazim",
     "url": "https://github.com/Abdallah-Abdelazim"
@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "mobile-pr-review",
-      "description": "Expert Android & iOS PR review. Defaults to a PENDING (draft) GitHub review, or posts live on request. Ships 7 dedicated review agents for Kotlin/Compose, Swift/SwiftUI, and KMP.",
+      "description": "Expert Android & iOS PR review. Defaults to a PENDING (draft) GitHub review, or posts live on request. Runs 7 built-in review passes for Kotlin/Compose, Swift/SwiftUI, and KMP.",
       "source": "./",
       "category": "code-review"
     }
