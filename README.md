@@ -1,6 +1,6 @@
 # mobile-pr-review
 
-A [Claude Code](https://claude.com/claude-code) plugin for expert Android, iOS & Kotlin Multiplatform (KMP) pull request review. By default it saves every finding as a **PENDING (draft) GitHub review** — invisible until you manually submit it — but you can ask it to post live instead, either up front or when it asks you.
+An [agent skill](https://github.com/vercel-labs/skills) for expert Android, iOS & Kotlin Multiplatform (KMP) pull request review. By default it saves every finding as a **PENDING (draft) GitHub review** — invisible until you manually submit it — but you can ask it to post live instead, either up front or when it asks you.
 
 Reviews Kotlin/Jetpack Compose/Gradle, Swift/SwiftUI/UIKit, and KMP code — including shared **Compose Multiplatform** UI — against up-to-date (2026) platform deprecations, Swift 6 / Compose best practices, code smells, and software-engineering excellence standards.
 
@@ -25,21 +25,15 @@ No separate agent files and no third-party plugin dependency — everything this
 
 ## Install
 
-### 1. Add the marketplace
+Install with the [`skills` CLI](https://github.com/vercel-labs/skills), which works across coding agents — swap `claude-code` below for your agent's identifier if you use a different one:
 
 ```
-/plugin marketplace add Abdallah-Abdelazim/mobile-pr-review-plugin
+npx skills add https://github.com/Abdallah-Abdelazim/mobile-pr-review-plugin/tree/main/skills/review-mobile-pr --agent claude-code
 ```
 
-### 2. Install the plugin
+This drops the skill into `.claude/skills/review-mobile-pr/` in the current project (or pass `--global` to install it to `~/.claude/skills/` instead, available in every project). Restart your agent (or start a new session) so it picks up the new skill.
 
-```
-/plugin install mobile-pr-review@mobile-pr-review
-```
-
-Restart Claude Code (or start a new session) so it picks up the new skill.
-
-### 3. Use it
+### Use it
 
 ```
 /review-mobile-pr https://github.com/<org>/<repo>/pull/<number>
