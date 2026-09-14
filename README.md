@@ -21,7 +21,7 @@ Reviews Kotlin/Jetpack Compose/Gradle, Swift/SwiftUI/UIKit, and KMP code — inc
 
 Every pass reads a platform reference checklist matching the diff — `android.md`, `ios.md`, or `kmp.md` — the last of which includes a dedicated **Compose Multiplatform** section (shared Composables, `expect`/`actual` UI, CMP resources, cross-platform navigation, iOS `ComposeUIViewController` embedding).
 
-No separate agent files and no third-party plugin dependency — everything this skill needs, including every review pass's prompt, ships inline in this one skill. For a genuinely small, low-risk diff (a typo fix, a comment-only edit), it may review directly instead of dispatching all 7 passes — same findings, less overhead.
+No separate agent files and no external dependency beyond the GitHub CLI — everything this skill needs, including every review pass's prompt, ships inline in this one skill. For a genuinely small, low-risk diff (a typo fix, a comment-only edit), it may review directly instead of dispatching all 7 passes — same findings, less overhead.
 
 ## Install
 

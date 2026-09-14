@@ -32,5 +32,5 @@ Adding coverage for a new platform API/feature:
 
 ## Related Context
 
-- Plugin packaging, posting-mode and fix-mode contracts: root `CLAUDE.md`
+- Repo layout, posting-mode and fix-mode contracts: root `CLAUDE.md`
 - The review passes that consume these files are defined inline in this skill's own `SKILL.md`, under "Review passes" — there is no separate agent spec directory

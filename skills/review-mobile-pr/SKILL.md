@@ -7,14 +7,14 @@ description: Expert Android & iOS PR review. Defaults to saving findings as a PE
 
 Reviews a GitHub PR through the lens of a **senior mobile engineer** (Android, iOS, and KMP) and, by default, saves all findings as a **pending (draft) review** — comments are visible only to you in the GitHub UI until you choose to submit them. The user can ask for findings to go live immediately instead; see "Posting mode" below. It can also, only when explicitly asked, apply a narrow class of safe fixes directly instead of just commenting; see "Fix mode" below.
 
-This skill is fully self-contained — no separate agent files, no plugin dependency. Every review pass is a specialized prompt defined inline in "Review passes" below, dispatched in parallel via the `Agent` tool as a fresh general-purpose agent with no memory of this conversation. The orchestrator (you) builds each dispatched prompt out of that pass's block below plus PR-specific context (intent, diff, reference paths):
+This skill is fully self-contained — no separate agent files, no external dependency beyond the GitHub CLI. Every review pass is a specialized prompt defined inline in "Review passes" below, dispatched in parallel via the `Agent` tool as a fresh general-purpose agent with no memory of this conversation. The orchestrator (you) builds each dispatched prompt out of that pass's block below plus PR-specific context (intent, diff, reference paths):
 
-| Reviewer | Focus | Dispatch |
+| Pass | Focus | Dispatch |
 |---|---|---|
 | Bug Hunter | Correctness — forgotten call sites, unhappy paths, wrong logic, non-exhaustive branching, contract mismatches, concurrency correctness | Always |
 | Silent-Failure Hunter | Swallowed exceptions, unjustified fallbacks, overly broad catches | Always |
 | Code-Quality Reviewer | Code smells, dead/unused code, duplication, SOLID/naming/PR-scope, platform checklist backstop | Always |
-| Deprecation Scanner | APIs deprecated/superseded/removed as of 2026 (Android 16/API 36, Swift 6, iOS 17–26) — extends beyond what any generic review plugin tracks | Always, when the diff touches Android and/or iOS files |
+| Deprecation Scanner | APIs deprecated/superseded/removed as of 2026 (Android 16/API 36, Swift 6, iOS 17–26) — extends beyond what a generic review tool tracks | Always, when the diff touches Android and/or iOS files |
 | Test Analyzer | Test coverage gaps, tests that don't exercise what they claim to | Always |
 | Comment Analyzer | Comment/doc accuracy, stranded artifacts from incomplete deletions | When the diff adds/modifies comments or doc comments |
 | Type-Design Analyzer | Type encapsulation and invariant expression | When the diff adds/reshapes a data class, sealed class/interface, enum, struct, or protocol |
