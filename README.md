@@ -22,6 +22,8 @@ Every pass reads a platform reference checklist matching the diff — `android.m
 
 No separate agent files and no external dependency beyond the GitHub CLI — everything this skill needs, including every review pass's prompt, ships inline in this one skill. For a genuinely small, low-risk diff (a typo fix, a comment-only edit), it may review directly instead of dispatching all 6 passes — same findings, less overhead.
 
+Three cost tiers, from cheapest to most thorough: the tiny-diff shortcut above (zero dispatch, always wins when it applies), `--lite` (2 passes — Bug Hunter + Code-Quality Reviewer only, see below), and the full 6-pass dispatch (the default for anything that isn't tiny).
+
 ## Install
 
 Install with the [`skills` CLI](https://github.com/vercel-labs/skills), which works across coding agents — swap `claude-code` below for your agent's identifier if you use a different one:
@@ -39,8 +41,10 @@ This drops the skill into `.claude/skills/review-mobile-pr/` in the current proj
 /review-mobile-pr <number>                     # when already inside the repo; asks Draft-or-Live before posting
 /review-mobile-pr <number> --live              # skip the question — post live immediately
 /review-mobile-pr <number> --draft             # skip the question — save as a pending review (the default anyway)
+/review-mobile-pr <number> --lite              # cheaper — only Bug Hunter + Code-Quality Reviewer, skips deprecation/test/comment/type-design passes
 /review-mobile-pr <number> --apply-safe-fixes  # also apply narrow, safe fixes directly instead of just commenting on them
 ```
+Flags combine — `--lite --apply-safe-fixes` works together.
 
 Requires the [GitHub CLI](https://cli.github.com/) (`gh`) authenticated against the target repo (`gh auth status`).
 
@@ -51,6 +55,7 @@ Requires the [GitHub CLI](https://cli.github.com/) (`gh`) authenticated against 
 - The skill never uses `gh pr review --comment`, `gh pr comment`, or any GitHub write API call that bypasses the single review it builds.
 - If the API call fails, it prints the findings to your terminal instead of falling back to any other posting mechanism, in either mode.
 - **The skill never edits your repo's files, unless you explicitly pass `--apply-safe-fixes`.** Even then, it only ever auto-applies a narrow class of unambiguous, single-line-grade fixes — anything else still becomes a review comment for you to act on yourself.
+- **`--lite` is a coverage tradeoff, not free.** With it, deprecation checking, test-coverage checking, and comment/type-design review don't happen at all — only correctness, error-handling, and code-quality/hygiene do.
 
 ## License
 

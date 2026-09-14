@@ -13,12 +13,12 @@ This skill is fully self-contained — no separate agent files, no external depe
 |---|---|---|
 | Bug Hunter | Correctness — forgotten call sites, unhappy paths, wrong logic, non-exhaustive branching, contract mismatches, concurrency correctness — plus a dedicated error-handling lens: swallowed exceptions, unjustified fallbacks, overly broad catches | Always |
 | Code-Quality Reviewer | Code smells, dead/unused code, duplication, SOLID/naming/PR-scope, platform checklist backstop | Always |
-| Deprecation Scanner | APIs deprecated/superseded/removed as of 2026 (Android 16/API 36, Swift 6, iOS 17–26) — extends beyond what a generic review tool tracks | Always, when the diff touches Android and/or iOS files |
-| Test Analyzer | Test coverage gaps, tests that don't exercise what they claim to | Always |
-| Comment Analyzer | Comment/doc accuracy, stranded artifacts from incomplete deletions | When the diff adds/modifies comments or doc comments |
-| Type-Design Analyzer | Type encapsulation and invariant expression | When the diff adds/reshapes a data class, sealed class/interface, enum, struct, or protocol |
+| Deprecation Scanner | APIs deprecated/superseded/removed as of 2026 (Android 16/API 36, Swift 6, iOS 17–26) — extends beyond what a generic review tool tracks | Always, when the diff touches Android and/or iOS files — skipped under `--lite` |
+| Test Analyzer | Test coverage gaps, tests that don't exercise what they claim to | Always — skipped under `--lite` |
+| Comment Analyzer | Comment/doc accuracy, stranded artifacts from incomplete deletions | When the diff adds/modifies comments or doc comments — skipped under `--lite` |
+| Type-Design Analyzer | Type encapsulation and invariant expression | When the diff adds/reshapes a data class, sealed class/interface, enum, struct, or protocol — skipped under `--lite` |
 
-See step 3 for how each is dispatched, step 4 for the deprecation pass specifically, and "Review passes" near the end of this file for each one's full prompt.
+See step 3 for how each is dispatched, step 4 for the deprecation pass specifically, "Review mode" below for what `--lite` changes, and "Review passes" near the end of this file for each one's full prompt.
 
 ## 📮 Posting mode
 
@@ -40,6 +40,16 @@ By default this skill only ever posts comments — it never edits the target rep
 
 This is opt-in only: without the flag, nothing changes from today's behavior — no edits, review-only, exactly as before. See step 7 for the mechanics and step 9 for how applied fixes show up in the summary.
 
+## 🪶 Review mode (opt-in)
+
+By default this skill dispatches the full pass set (see the table above and step 3's "Always dispatch" / "Dispatch conditionally" tables). Passing `--lite` switches to a narrower, cheaper dispatch instead: **only Bug Hunter and Code-Quality Reviewer run.** Deprecation Scanner (step 4), Test Analyzer, Comment Analyzer, and Type-Design Analyzer are all skipped — regardless of whether their normal "always" or "when relevant" dispatch condition would otherwise apply to this diff.
+
+This is a deliberate coverage-for-cost tradeoff, not a bug: under `--lite` there is no deprecation checking, no test-coverage checking, and no comment/type-design review. Nothing else changes — confidence filtering (step 5), cross-check against existing PR comments (step 6), and fix mode (step 7, if `--apply-safe-fixes` is also passed) all run exactly as in full mode, on whatever the two dispatched passes found.
+
+**The tiny-diff exception in step 3 still takes precedence over `--lite`.** A genuinely trivial diff gets reviewed directly with zero dispatch, whether or not `--lite` was passed — `--lite` only changes behavior for a diff that isn't tiny.
+
+This is opt-in only: without the flag, nothing changes from today's behavior — full dispatch, exactly as before. There's no auto-detection by diff size; the user decides.
+
 ## ⛔ Safety contract (read this first)
 
 - **Draft is the safe default and stays invisible until the human submits it.** Only switch to Live when the posting mode above actually resolved to Live — never post live "just in case" or because it seemed faster.
@@ -54,14 +64,16 @@ This is opt-in only: without the flag, nothing changes from today's behavior —
 
 ## Usage
 
-Invoke with a PR URL or number, optionally naming a posting mode to skip the prompt, and optionally opting into fix mode:
+Invoke with a PR URL or number, optionally naming a posting mode to skip the prompt, and optionally opting into review mode and/or fix mode:
 ```
 /review-mobile-pr https://github.com/<org>/<repo>/pull/<number>
 /review-mobile-pr <number>                       # when already inside the repo; asks Draft-or-Live before posting
 /review-mobile-pr <number> --live                # skip the question — post live immediately
 /review-mobile-pr <number> --draft               # skip the question — save as a pending review (the default anyway)
+/review-mobile-pr <number> --lite                # cheaper dispatch — only Bug Hunter + Code-Quality Reviewer; skips deprecation/test/comment/type-design passes
 /review-mobile-pr <number> --apply-safe-fixes    # also apply narrow, safe fixes directly; everything else still gets posted as a review comment
 ```
+Flags combine freely — e.g. `--lite --apply-safe-fixes` runs the narrow pass set and still applies any suggestion-grade fix that survives it.
 
 ## Reference files (read the relevant ones before reviewing)
 
@@ -78,7 +90,7 @@ These files live in this skill's own `references/` directory, right alongside th
 
 ### 1. Pre-flight
 
-Resolve the posting mode first (see "Posting mode" above) if it isn't already clear from the invocation.
+Resolve the posting mode first (see "Posting mode" above) if it isn't already clear from the invocation. Also resolve review mode: full (default) unless `--lite` was passed.
 
 ```bash
 gh auth status   # must succeed — stop if not authenticated
@@ -96,9 +108,9 @@ gh api repos/<owner>/<repo>/issues/<number>/comments --paginate  # existing top-
 
 Keep the existing comments on hand — you'll cross-check your findings against them before posting (step 6).
 
-Show header (with the resolved posting mode):
+Show header (with the resolved posting mode; append ` · lite` when `--lite` was resolved):
 ```
-🔍 Mobile PR Review (draft | live)
+🔍 Mobile PR Review (draft | live)[ · lite]
 📋 PR #<number>: <title>
 🔀 <base> ← <head>
 📂 Files changed: <count>
@@ -131,30 +143,32 @@ Delegate the labor-intensive analysis to the review passes defined in "Review pa
 
 Putting this block first, byte-identical across all dispatched prompts (same wording, same diff, same paths, same order), means the diff — the largest chunk of tokens in every one of these prompts — sits in a shared, cacheable prefix instead of being repeated as one-off content per pass. On a large diff this is the single biggest cost lever available at dispatch time; don't reorder it back to "pass block, then context" even for a single-pass tweak.
 
-**Exception — tiny diffs.** For a genuinely small, low-risk diff (a handful of changed lines in one file — a typo fix, a comment-only edit, a one-line constant/config change, a single trivial rename with no logic change), it's acceptable to review it yourself directly instead of dispatching the passes below: read the touched file(s) and the platform reference file(s) from step 2, and apply the same checks the relevant passes would run. Still produce findings in the same output-format shape (see above) so steps 5 onward work unchanged. Fall back to full dispatch whenever the diff has any real logic, spans more than a file or two, or touches money/auth/PII/concurrency — that's exactly the size and risk the parallel passes exist for.
+**Exception — tiny diffs.** For a genuinely small, low-risk diff (a handful of changed lines in one file — a typo fix, a comment-only edit, a one-line constant/config change, a single trivial rename with no logic change), it's acceptable to review it yourself directly instead of dispatching the passes below: read the touched file(s) and the platform reference file(s) from step 2, and apply the same checks the relevant passes would run. Still produce findings in the same output-format shape (see above) so steps 5 onward work unchanged. Fall back to full dispatch whenever the diff has any real logic, spans more than a file or two, or touches money/auth/PII/concurrency — that's exactly the size and risk the parallel passes exist for. This exception takes precedence over `--lite` too — a tiny diff always gets zero-dispatch local review, `--lite` or not.
 
-Always dispatch:
+**`--lite` mode.** When `--lite` was resolved (see "Review mode" above) and the diff isn't tiny, dispatch only Bug Hunter and Code-Quality Reviewer from the "Always dispatch" table below — skip Test Analyzer, skip both rows of the "Dispatch conditionally" table regardless of whether their condition matches, and skip step 4's Deprecation Scanner entirely. Everything else in this step (shared-context-first prompt order, verify-before-trusting) applies unchanged to the two passes that do run.
+
+Always dispatch (in full mode; under `--lite`, only the first row runs):
 
 | Pass | Focus |
 |---|---|
 | Bug Hunter | Bug hunt — forgotten call sites, unhappy paths, wrong/non-exhaustive logic, contract mismatches, resource-lifecycle leaks, concurrency correctness — plus a dedicated adversarial error-handling lens: swallowed exceptions, inadequate error handling, unjustified fallbacks, overly broad catches. The highest-value pass; give it the PR intent and full diff. |
 | Code-Quality Reviewer | Code smells & hygiene, dead code, duplication, SOLID/naming/PR-scope standards, plus the platform checklist backstop (architecture, Compose/SwiftUI, DI, security, performance, a11y, localisation, build hygiene). |
-| Test Analyzer | Behavioral test coverage gaps, untested edge cases, and tests that don't actually exercise what they claim to. |
+| Test Analyzer | Behavioral test coverage gaps, untested edge cases, and tests that don't actually exercise what they claim to. **Skipped under `--lite`.** |
 
-Dispatch conditionally, only when relevant to this diff:
+Dispatch conditionally, only when relevant to this diff (neither row dispatches under `--lite`, even if its condition matches):
 
 | Pass | Include when |
 |---|---|
 | Comment Analyzer | The diff adds new comment/KDoc/doc-comment text, or changes what an existing one says — also catches "stranded artifacts from incomplete deletions" (a comment left behind by a deletion elsewhere in the hunk). **Not** just because a comment's line number moved — a diff hunk that reflows or relocates code without changing any comment's actual text doesn't qualify on its own. |
 | Type-Design Analyzer | The diff adds a new `data class`, `sealed class`/`interface`, `enum class`, or Swift `struct`/`protocol`/`enum`, or changes an existing one's *shape* in a way that could affect its invariants (a new variant/case, a nullability or mutability change, new mutually-exclusive fields). **Not** a mechanical addition to an already-sound type (e.g. one more field with an obvious default, threaded through call sites) — that's the Bug Hunter's and Code-Quality Reviewer's territory. |
 
-The deprecation pass is dispatched separately in step 4, since it needs the deprecation-table reference files specifically and nothing else.
+The deprecation pass is dispatched separately in step 4, since it needs the deprecation-table reference files specifically and nothing else — and, like the two tables above, is skipped entirely under `--lite`.
 
 **Verify before trusting.** A pass above works only from what its prompt gave it. If a returned finding depends on something outside that diff (another call site, a default value, what a function returns), re-verify with `grep`/`Read` before accepting it into your findings pool — a wrong finding wastes the author's time and burns review credibility.
 
 ### 4. Deprecation & modernity pass
 
-Dispatch the Deprecation Scanner pass (in the same parallel batch as step 3, or right after — either is fine) whenever the diff touches Android and/or iOS files. Give it the diff, the changed-files list, and the absolute path(s) to `android.md` and/or `ios.md` — whichever platform(s) apply. It reads the deprecation tables itself and flags newly-added usage of anything deprecated, removed, or superseded as of 2026 (Android 16/API 36, Swift 6, iOS 17–26), web-searching anything it doesn't recognize rather than guessing. Skip this dispatch entirely for a pure-KMP-common diff with no `androidMain`/`iosMain` files touched.
+Skip this step entirely under `--lite` (see "Review mode" above). Otherwise, dispatch the Deprecation Scanner pass (in the same parallel batch as step 3, or right after — either is fine) whenever the diff touches Android and/or iOS files. Give it the diff, the changed-files list, and the absolute path(s) to `android.md` and/or `ios.md` — whichever platform(s) apply. It reads the deprecation tables itself and flags newly-added usage of anything deprecated, removed, or superseded as of 2026 (Android 16/API 36, Swift 6, iOS 17–26), web-searching anything it doesn't recognize rather than guessing. Skip this dispatch entirely for a pure-KMP-common diff with no `androidMain`/`iosMain` files touched.
 
 ### 5. Aggregate findings
 
@@ -267,11 +281,12 @@ Tone: findings, not verdicts. State the problem and its consequence; don't lectu
 
 ### 9. Summary
 
-After posting, print (heading depends on the resolved posting mode):
+After posting, print (heading depends on the resolved posting mode; append ` · lite` when `--lite` was resolved):
 
 ```
 ✅ Draft review saved (NOT submitted)          [Draft mode]
 ✅ Review posted — visible on the PR now       [Live mode]
+   (append " · lite" to either line above when --lite was active)
 
 Findings:
   🔴 Critical: <n>
@@ -281,10 +296,10 @@ Findings:
 
 By category:
   🐛 Bugs/correctness:      <n>
-  ⏳ Deprecated APIs:       <n>
+  ⏳ Deprecated APIs:       <n>   (Deprecation Scanner — only if dispatched)
   🧹 Code smells/dead code: <n>
   📐 Engineering standards: <n>
-  🧪 Test coverage gaps:    <n>   (Test Analyzer)
+  🧪 Test coverage gaps:    <n>   (Test Analyzer — only if dispatched)
   💬 Comment accuracy:      <n>   (Comment Analyzer — only if dispatched)
   🏗️  Type design:           <n>   (Type-Design Analyzer — only if dispatched)
 
