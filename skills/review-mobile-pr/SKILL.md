@@ -1,6 +1,5 @@
 ---
 name: review-mobile-pr
-model: claude-sonnet-5
 description: Expert Android & iOS PR review. Defaults to saving findings as a PENDING (draft) GitHub review — invisible until manually submitted — but will post them live instead if the user asks or says so when prompted. Use whenever the user asks to review, audit, or give feedback on a pull request touching Android (Kotlin, Jetpack Compose, Gradle), iOS (Swift, SwiftUI, UIKit), or KMP code — including phrases like "review this PR", "check my PR", "draft review", or a GitHub PR URL for a mobile repo. Reviews against up-to-date (2026) platform deprecations, Swift 6 / Compose best practices, code smells (unused code, dead code, poor structure), and software-engineering excellence standards.
 ---
 
