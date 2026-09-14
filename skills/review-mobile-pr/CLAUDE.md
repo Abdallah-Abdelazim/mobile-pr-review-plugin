@@ -5,7 +5,7 @@ Owns the PR-review orchestration logic, all 7 review-pass prompts, and the platf
 ## Entry Points
 
 - `SKILL.md` - the orchestrator and every review pass's full prompt in one file: pre-flight, platform detection, pass dispatch, aggregation (with confidence-based filtering), cross-check against existing PR comments, opt-in safe-fix application, posting, summary
-- `references/android.md`, `references/ios.md`, `references/kmp.md`, `references/engineering-excellence.md` - read directly by dispatched passes via their `Read` tool, given as absolute paths the orchestrator resolves itself (this is a standalone skill, not a plugin — no `${CLAUDE_PLUGIN_ROOT}` variable exists to expand) — never pasted inline as excerpts
+- `references/android.md`, `references/ios.md`, `references/kmp.md`, `references/engineering-excellence.md` - read directly by dispatched passes via their `Read` tool, given as absolute paths the orchestrator resolves itself — never pasted inline as excerpts
 
 ## Contracts & Invariants
 
