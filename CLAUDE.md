@@ -11,7 +11,7 @@ A Claude Code plugin: one skill (`review-mobile-pr`) that inlines all 7 of its r
 No node for `.claude-plugin/` — below the token threshold; covered inline below.
 
 ```
-mobile-pr-review-plugin/
+mobile-pr-review-skill/
 ├── .claude-plugin/
 │   ├── plugin.json         # name/version/description — this repo IS the plugin
 │   └── marketplace.json    # this repo is also its own single-plugin marketplace (source: "./")

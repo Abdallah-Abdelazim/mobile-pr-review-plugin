@@ -28,7 +28,7 @@ No separate agent files and no third-party plugin dependency — everything this
 Install with the [`skills` CLI](https://github.com/vercel-labs/skills), which works across coding agents — swap `claude-code` below for your agent's identifier if you use a different one:
 
 ```
-npx skills add https://github.com/Abdallah-Abdelazim/mobile-pr-review-plugin/tree/main/skills/review-mobile-pr --agent claude-code
+npx skills add https://github.com/Abdallah-Abdelazim/mobile-pr-review-skill/tree/main/skills/review-mobile-pr --agent claude-code
 ```
 
 This drops the skill into `.claude/skills/review-mobile-pr/` in the current project (or pass `--global` to install it to `~/.claude/skills/` instead, available in every project). Restart your agent (or start a new session) so it picks up the new skill.
