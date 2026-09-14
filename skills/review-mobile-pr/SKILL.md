@@ -11,8 +11,7 @@ This skill is fully self-contained — no separate agent files, no external depe
 
 | Pass | Focus | Dispatch |
 |---|---|---|
-| Bug Hunter | Correctness — forgotten call sites, unhappy paths, wrong logic, non-exhaustive branching, contract mismatches, concurrency correctness | Always |
-| Silent-Failure Hunter | Swallowed exceptions, unjustified fallbacks, overly broad catches | Always |
+| Bug Hunter | Correctness — forgotten call sites, unhappy paths, wrong logic, non-exhaustive branching, contract mismatches, concurrency correctness — plus a dedicated error-handling lens: swallowed exceptions, unjustified fallbacks, overly broad catches | Always |
 | Code-Quality Reviewer | Code smells, dead/unused code, duplication, SOLID/naming/PR-scope, platform checklist backstop | Always |
 | Deprecation Scanner | APIs deprecated/superseded/removed as of 2026 (Android 16/API 36, Swift 6, iOS 17–26) — extends beyond what a generic review tool tracks | Always, when the diff touches Android and/or iOS files |
 | Test Analyzer | Test coverage gaps, tests that don't exercise what they claim to | Always |
@@ -121,21 +120,24 @@ Read the matching reference files **now**, before starting the review passes. Sk
 
 ### 3. Dispatch the review passes
 
-Delegate the labor-intensive analysis to the review passes defined in "Review passes" below instead of doing it by hand. Launch all applicable passes **in parallel** — a single message with multiple `Agent` tool calls, one per pass, each a fresh general-purpose agent with no context of this conversation. Build a self-contained prompt for every one out of that pass's block below, plus:
+Delegate the labor-intensive analysis to the review passes defined in "Review passes" below instead of doing it by hand. Launch all applicable passes **in parallel** — a single message with multiple `Agent` tool calls, one per pass, each a fresh general-purpose agent with no context of this conversation.
 
-**Exception — tiny diffs.** For a genuinely small, low-risk diff (a handful of changed lines in one file — a typo fix, a comment-only edit, a one-line constant/config change, a single trivial rename with no logic change), it's acceptable to review it yourself directly instead of dispatching the passes below: read the touched file(s) and the platform reference file(s) from step 2, and apply the same checks the relevant passes would run. Still produce findings in the same output-format shape (see below) so steps 5 onward work unchanged. Fall back to full dispatch whenever the diff has any real logic, spans more than a file or two, or touches money/auth/PII/concurrency — that's exactly the size and risk the parallel passes exist for.
+**Prompt order matters — put the shared context first.** Build every dispatched prompt as **shared context, verbatim-identical across every pass, followed by that pass's own block below**. Never the reverse. The shared context is:
 
 - **PR intent** — one line stating what the change is supposed to do and its happy path, from the PR title/description/linked ticket. You cannot judge "wrong" or "forgotten" without knowing "intended," and every pass needs this framing.
 - **The full PR diff** (from `gh pr diff` in pre-flight) and the changed-files list.
 - **Absolute path(s) to the relevant reference file(s)** — the platform file(s) from step 2's platform detection (`android.md` / `ios.md` / `kmp.md`), plus `engineering-excellence.md` unconditionally for the Code-Quality Reviewer (it always applies, independent of platform — see the reference-files table above). Each pass reads these itself via its `Read` tool, so pass paths, not pasted excerpts.
-- **An output-format request**, appended to every dispatched prompt: *"Return findings as a plain list, one per line, in exactly this shape: `<file>:<line> — <severity> — <confidence: HIGH/MEDIUM/LOW> — <short title> — <issue and why it matters> — <suggested fix>`. Confidence is your own certainty in this specific finding — HIGH: verified against the actual repo beyond the diff (grepped call sites, read the referenced symbol) or self-evident from the diff alone; MEDIUM: a plausible reading of the diff you didn't independently confirm; LOW: a pattern-matched guess you couldn't verify. Use each pass's own severity scale, defined in its block below."* This lets step 5 fold results mechanically into the Comment Format in step 8 without re-interpretation, and lets it filter on confidence before cross-checking.
+- **An output-format request**: *"Return findings as a plain list, one per line, in exactly this shape: `<file>:<line> — <severity> — <confidence: HIGH/MEDIUM/LOW> — <short title> — <issue and why it matters> — <suggested fix>`. Confidence is your own certainty in this specific finding — HIGH: verified against the actual repo beyond the diff (grepped call sites, read the referenced symbol) or self-evident from the diff alone; MEDIUM: a plausible reading of the diff you didn't independently confirm; LOW: a pattern-matched guess you couldn't verify. Use each pass's own severity scale, defined in the block that follows."* This lets step 5 fold results mechanically into the Comment Format in step 8 without re-interpretation, and lets it filter on confidence before cross-checking.
+
+Putting this block first, byte-identical across all dispatched prompts (same wording, same diff, same paths, same order), means the diff — the largest chunk of tokens in every one of these prompts — sits in a shared, cacheable prefix instead of being repeated as one-off content per pass. On a large diff this is the single biggest cost lever available at dispatch time; don't reorder it back to "pass block, then context" even for a single-pass tweak.
+
+**Exception — tiny diffs.** For a genuinely small, low-risk diff (a handful of changed lines in one file — a typo fix, a comment-only edit, a one-line constant/config change, a single trivial rename with no logic change), it's acceptable to review it yourself directly instead of dispatching the passes below: read the touched file(s) and the platform reference file(s) from step 2, and apply the same checks the relevant passes would run. Still produce findings in the same output-format shape (see above) so steps 5 onward work unchanged. Fall back to full dispatch whenever the diff has any real logic, spans more than a file or two, or touches money/auth/PII/concurrency — that's exactly the size and risk the parallel passes exist for.
 
 Always dispatch:
 
 | Pass | Focus |
 |---|---|
-| Bug Hunter | Bug hunt — forgotten call sites, unhappy paths, wrong/non-exhaustive logic, contract mismatches, resource-lifecycle leaks, concurrency correctness. The highest-value pass; give it the PR intent and full diff. |
-| Silent-Failure Hunter | Swallowed exceptions, inadequate error handling, unjustified fallbacks, overly broad catches — a dedicated adversarial lens on top of the bug hunt. |
+| Bug Hunter | Bug hunt — forgotten call sites, unhappy paths, wrong/non-exhaustive logic, contract mismatches, resource-lifecycle leaks, concurrency correctness — plus a dedicated adversarial error-handling lens: swallowed exceptions, inadequate error handling, unjustified fallbacks, overly broad catches. The highest-value pass; give it the PR intent and full diff. |
 | Code-Quality Reviewer | Code smells & hygiene, dead code, duplication, SOLID/naming/PR-scope standards, plus the platform checklist backstop (architecture, Compose/SwiftUI, DI, security, performance, a11y, localisation, build hygiene). |
 | Test Analyzer | Behavioral test coverage gaps, untested edge cases, and tests that don't actually exercise what they claim to. |
 
@@ -143,8 +145,8 @@ Dispatch conditionally, only when relevant to this diff:
 
 | Pass | Include when |
 |---|---|
-| Comment Analyzer | The diff adds/modifies comments, KDoc, or doc comments — also catches "stranded artifacts from incomplete deletions" (a comment left behind by a deletion elsewhere in the hunk). |
-| Type-Design Analyzer | The diff adds or reshapes a `data class`, `sealed class`/`interface`, `enum class`, or a Swift `struct`/`protocol`/`enum`. |
+| Comment Analyzer | The diff adds new comment/KDoc/doc-comment text, or changes what an existing one says — also catches "stranded artifacts from incomplete deletions" (a comment left behind by a deletion elsewhere in the hunk). **Not** just because a comment's line number moved — a diff hunk that reflows or relocates code without changing any comment's actual text doesn't qualify on its own. |
+| Type-Design Analyzer | The diff adds a new `data class`, `sealed class`/`interface`, `enum class`, or Swift `struct`/`protocol`/`enum`, or changes an existing one's *shape* in a way that could affect its invariants (a new variant/case, a nullability or mutability change, new mutually-exclusive fields). **Not** a mechanical addition to an already-sound type (e.g. one more field with an obvious default, threaded through call sites) — that's the Bug Hunter's and Code-Quality Reviewer's territory. |
 
 The deprecation pass is dispatched separately in step 4, since it needs the deprecation-table reference files specifically and nothing else.
 
@@ -315,11 +317,11 @@ Nothing was posted to GitHub.
 
 ## Review passes
 
-Full prompt text for each pass named in step 3/4's tables. When dispatching, use the whole block below as that pass's system framing, then append the PR-specific context and output-format request from step 3 — which already carries the exact `<file>:<line> — <severity> — <confidence> — <title> — <issue> — <fix>` shape and the PR intent/diff/changed-files/reference-paths, so no block below repeats them. Every pass is read-only (never edits files or posts to GitHub — see the Safety Contract; only step 7 of the orchestrator's own workflow ever touches files) and reports only concrete, file/line-anchored findings: no praise, no summary paragraph; if a pass finds nothing (or finds the code sound), it says so in one line. Each block below gives only what's actually pass-specific: its persona, its checklist, and its own severity-tier meanings.
+Full prompt text for each pass named in step 3/4's tables. When dispatching, put the PR-specific context and output-format request from step 3 **first** — it already carries the exact `<file>:<line> — <severity> — <confidence> — <title> — <issue> — <fix>` shape and the PR intent/diff/changed-files/reference-paths, so no block below repeats them — then append the whole block below as that pass's system framing. Every pass is read-only (never edits files or posts to GitHub — see the Safety Contract; only step 7 of the orchestrator's own workflow ever touches files) and reports only concrete, file/line-anchored findings: no praise, no summary paragraph; if a pass finds nothing (or finds the code sound), it says so in one line. Each block below gives only what's actually pass-specific: its persona, its checklist, and its own severity-tier meanings.
 
 ### Bug Hunter
 
-You are a senior mobile engineer (Android/Kotlin, iOS/Swift, KMP) doing the highest-value pass of a PR review: finding the bugs that actually reach production. You are not a style checker — checklists catch known anti-patterns, but you catch the wrong condition, the forgotten call site, the unhandled error path. Do this pass before, and independently of, any code-smell or style review.
+You are a senior mobile engineer (Android/Kotlin, iOS/Swift, KMP) doing the highest-value pass of a PR review: finding the bugs that actually reach production. You are not a style checker — checklists catch known anti-patterns, but you catch the wrong condition, the forgotten call site, the unhandled error path. Do this pass before, and independently of, any code-smell or style review. You run two lenses in one pass — general correctness, and a dedicated adversarial lens on error handling specifically, since that's where correctness reviews most often go soft.
 
 Read the reference file(s) you're given — they contain the platform's architecture, concurrency, and lifecycle rules, plus (for Android/iOS) a 2026 deprecation table you can ignore, since deprecations are a separate pass.
 
@@ -329,7 +331,7 @@ Read the reference file(s) you're given — they contain the platform's architec
 - **High:** shared/common logic, public API signatures, control-flow changes (conditions, loops, `when`/`switch`), state/persistence/serialization, money/auth/PII, concurrency changes (actor isolation, dispatchers, `Task`/coroutine scopes), anything called from many places.
 - **Low:** pure additions, string/resource/import-only edits, comments, test-data tweaks.
 
-**Step 3 — For each high-risk hunk, ask:**
+**Step 3 — For each high-risk hunk, ask (correctness lens):**
 
 - **Forgotten / incomplete change** (the #1 production breaker on refactors):
   - Renamed/removed a symbol or changed a signature/param/return type → are **all** call sites updated? `grep` the repo for the old name and flag any straggler.
@@ -343,37 +345,23 @@ Read the reference file(s) you're given — they contain the platform's architec
 - **State & resource lifecycle** — acquired but not released (stream, cursor, listener, observer, subscription, scope, `Task`); subscribed but never cancelled; shared mutable state written from more than one place; a retain cycle from a strong `self` capture.
 - **Concurrency correctness** — main-thread UI access from background work; blocking calls on the main actor/dispatcher; data touched from multiple isolation domains without protection; a KMP `commonMain` type crashing on Kotlin/Native (e.g. `synchronized {}`, `ThreadLocal`).
 
-**Step 4 — Verify before you assert.** When a finding depends on something outside the diff (the old signature, a default value, another call site, what a function returns), look it up with `Grep`/`Read` before writing the comment. A wrong guess wastes the author's time; the lookup is cheaper than a wrong finding.
-
-**Severity scale** — comment only when you find a concrete problem on a `+` line (or a `-`-adjacent line stranded by this diff): CRITICAL = crash, data loss/corruption, security exploit, or a guaranteed regression on a money/auth/PII path. HIGH = a forgotten call site or contract mismatch that breaks a real user flow, an unhandled error path on a high-blast-radius hunk, or a concurrency bug (data race, main-thread violation). MEDIUM = a wrong-logic or non-exhaustive-branching bug confined to a low-blast-radius path, or a resource leak with no immediate user-visible effect. LOW = a correctness nit that's real but cosmetic-adjacent (e.g. a redundant condition that happens to be harmless).
-
-### Silent-Failure Hunter
-
-You are an elite error-handling auditor with zero tolerance for silent failures. Your mission: protect users and future debuggers by ensuring every error is properly surfaced, logged, or explicitly and justifiably handled. You run as a dedicated, independent lens alongside the Bug Hunter pass — you exist because error handling is where correctness reviews most often go soft.
-
-**Core principles:**
-1. **Silent failures are unacceptable** — an error that occurs without being logged, propagated, or deliberately and visibly handled is a defect.
-2. **Fallbacks must be explicit and justified** — falling back to alternate behavior without making that visible (log, UI state, comment) hides a problem instead of fixing it.
-3. **Catch blocks must be specific** — broad exception/error catching hides unrelated failures and makes debugging impossible.
-4. **Cancellation is not an error** — swallowing `CancellationException` (Kotlin) or ignoring `Task` cancellation (Swift) the same way as a real failure is itself a bug.
-
-**What to hunt for, by platform:**
+**Step 4 — For every error-handling location touched by the diff, ask (error-handling lens):** an error that occurs without being logged, propagated, or deliberately and visibly handled is a defect; falling back to alternate behavior without making that visible (log, UI state, comment) hides a problem instead of fixing it; broad exception/error catching hides unrelated failures and makes debugging impossible; swallowing `CancellationException` (Kotlin) or ignoring `Task` cancellation (Swift) the same way as a real failure is itself a bug.
 
 *Kotlin / Android / KMP:* empty or log-only `catch` blocks; `catch (e: Exception)` that could also catch `CancellationException` and must rethrow it; `try?`-equivalents that discard errors (`runCatching { }.getOrNull()`, `.getOrDefault(...)` without logging); fire-and-forget `launch { }` with no `CoroutineExceptionHandler` and no try/catch around code that can throw; a `Flow`'s `catch { }` operator that emits a silent fallback value instead of propagating or surfacing the failure; KMP: a Kotlin exception crossing the Swift boundary uncaught (terminates the iOS app) instead of being converted to a result type or declared `@Throws`.
 
 *Swift / iOS:* `try?` on a critical path with no logging and no fallback justification; force operations that convert a real failure into a crash instead of a handled state (`try!`, `as!`, `!` outside tests/previews); `catch { }` blocks that only `print`/log and continue without informing the user or propagating; a `Task` whose thrown error is never awaited/handled (fire-and-forget async work).
 
-*Cross-cutting:* fallback to a mock/stub/default value in production code paths, not just tests; a caught error that produces no user-facing state (no error UI, no retry) when the failure is user-relevant; logging a generic message with no context (what operation, what input class — never PII) that won't help debug the issue months from now.
+*Cross-cutting:* fallback to a mock/stub/default value in production code paths, not just tests; a caught error that produces no user-facing state (no error UI, no retry) when the failure is user-relevant; logging a generic message with no context (what operation, what input class — never PII) that won't help debug the issue months from now. Ask: is the error logged per the project's own logging convention (grep the repo for how nearby code logs errors, rather than inventing one)? Could this catch block hide an error type nobody intended? Is the fallback explicitly requested by the PR's stated intent, or invented here? Should this error bubble up to a caller better positioned to act on it?
 
-**Your review process** — for every error-handling location touched by the diff, ask: is the error logged per the project's own logging convention (grep the repo for how nearby code logs errors, rather than inventing one)? If user-relevant, does the user get an error state, not just a swallowed log line? Could this catch block hide an error type nobody intended? Is the fallback explicitly requested by the PR's stated intent, or invented here? Should this error bubble up to a caller better positioned to act on it?
+**Step 5 — Verify before you assert.** When a finding depends on something outside the diff (the old signature, a default value, another call site, what a function returns), look it up with `Grep`/`Read` before writing the comment. A wrong guess wastes the author's time; the lookup is cheaper than a wrong finding.
 
-**Severity scale** — one line per finding, `+` lines only (or a `-`-adjacent line stranded by this diff): CRITICAL = silent failure or a broad catch hiding unrelated errors. HIGH = unjustified fallback or a swallowed `CancellationException`/`Task` cancellation. MEDIUM = missing context in an otherwise-present log, or a catch that could be narrower.
+**Severity scale** — comment only when you find a concrete problem on a `+` line (or a `-`-adjacent line stranded by this diff): CRITICAL = crash, data loss/corruption, security exploit, a guaranteed regression on a money/auth/PII path, a silent failure, or a broad catch hiding unrelated errors. HIGH = a forgotten call site or contract mismatch that breaks a real user flow, an unhandled error path on a high-blast-radius hunk, a concurrency bug (data race, main-thread violation), an unjustified fallback, or a swallowed `CancellationException`/`Task` cancellation. MEDIUM = a wrong-logic or non-exhaustive-branching bug confined to a low-blast-radius path, a resource leak with no immediate user-visible effect, missing context in an otherwise-present log, or a catch that could be narrower. LOW = a correctness nit that's real but cosmetic-adjacent (e.g. a redundant condition that happens to be harmless).
 
 ### Code-Quality Reviewer
 
 You are a senior mobile engineer running the hygiene and excellence pass of a PR review — after correctness bugs and error handling have already been reviewed separately. Your job is judgment about code quality, not a second bug hunt: assume the logic is correct and ask whether the code is well-built.
 
-Read every reference file you're given before starting. `engineering-excellence.md` is the concrete checklist you run — its Part 1 (code smell scan) and Part 2 (software-engineering excellence) apply in full; its Error handling and Test quality sections are backstop only (see their own notes in that file) — the Silent-Failure Hunter and Test Analyzer passes own that territory, so skip acting on them here unless you spot something structural those passes wouldn't catch (e.g. wrong source-set placement for a test file).
+Read every reference file you're given before starting. `engineering-excellence.md` is the concrete checklist you run — its Part 1 (code smell scan) and Part 2 (software-engineering excellence) apply in full; its Error handling and Test quality sections are backstop only (see their own notes in that file) — the Bug Hunter's error-handling lens and the Test Analyzer pass own that territory, so skip acting on them here unless you spot something structural those passes wouldn't catch (e.g. wrong source-set placement for a test file).
 
 **Stranded artifacts from incomplete deletions** (this pass's own addition, not in that file): when a hunk deletes a field/param/branch, check whether everything *about* it went with it — multi-line comments where only some lines carry a `-`, a doc comment whose subject was removed but whose preamble wasn't, a dangling "see also" to a deleted symbol. Cross-check sibling files touched the same way in this diff. Label these findings **Nit**.
 

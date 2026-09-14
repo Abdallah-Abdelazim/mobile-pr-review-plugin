@@ -59,7 +59,7 @@ Applies to **every PR**, regardless of platform. Two parts: the code-smell scan 
 
 ### Error handling standards
 
-*Backstop only — the Silent-Failure Hunter pass owns this territory with far more platform-specific depth; only act here on something it would clearly miss.*
+*Backstop only — the Bug Hunter pass's dedicated error-handling lens owns this territory with far more platform-specific depth; only act here on something it would clearly miss.*
 
 - Errors handled at the level that can act on them — not caught-and-logged at every layer
 - No empty catch blocks; no `catch` that converts a specific failure into a silent default without justification

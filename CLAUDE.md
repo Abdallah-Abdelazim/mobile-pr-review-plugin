@@ -1,6 +1,6 @@
 # mobile-pr-review-skill (repo)
 
-An agent skill (`review-mobile-pr`) for expert Android/iOS/KMP PR review — one skill file with all 7 review-pass prompts inlined, no separate agent files. Installed with the `skills` CLI (`npx skills add ...`); see README.md.
+An agent skill (`review-mobile-pr`) for expert Android/iOS/KMP PR review — one skill file with all 6 review-pass prompts inlined, no separate agent files. Installed with the `skills` CLI (`npx skills add ...`); see README.md.
 
 ## Intent Layer
 
@@ -25,7 +25,9 @@ mobile-pr-review-skill/
 
 ## Anti-patterns
 
-- Don't add an 8th (or remove a) review pass without also updating `SKILL.md`'s "Always dispatch" / "Dispatch conditionally" tables in steps 3 and 4, its own prompt block in the "Review passes" section, and the summary table near the top — the dispatch tables are the actual dispatch contract, not just documentation.
+- Don't add a 7th (or remove a) review pass without also updating `SKILL.md`'s "Always dispatch" / "Dispatch conditionally" tables in steps 3 and 4, its own prompt block in the "Review passes" section, and the summary table near the top — the dispatch tables are the actual dispatch contract, not just documentation.
+- **Prompt order is a cost lever, not incidental.** Every dispatched pass's prompt puts the shared PR context (intent, full diff, reference paths, output-format request) first, byte-identical across all passes, then that pass's own persona/checklist block last (see `SKILL.md` step 3 and the "Review passes" intro). This exists so the diff — the dominant token cost on a large PR — sits in a cacheable shared prefix instead of being duplicated per pass with no cache benefit. Don't flip the order back to "pass block, then context" for convenience.
+- **Bug Hunter absorbs the error-handling lens** (formerly a separate Silent-Failure Hunter pass, merged 2026-09 to cut per-review dispatch count/cost on large diffs) — its prompt block runs both a correctness pass and a dedicated adversarial error-handling pass in one dispatch, with one merged severity scale. Don't split it back out into two passes without re-checking whether the cost tradeoff still favors doing so.
 - **Don't add a new review check by writing it directly into one of `SKILL.md`'s inline pass blocks.** A real mistake, not a hypothetical: the redundant-state/efficiency/leaky-abstraction checks were first added straight into the Code-Quality Reviewer's `SKILL.md` block, duplicating content that belonged in `engineering-excellence.md` — the pass was then reading the same checklist twice (once inline, once from the file it's told to treat as "the concrete checklist you run"). New checklist substance belongs in the matching reference file's H2 section (see `skills/review-mobile-pr/CLAUDE.md`'s "Adding coverage" pattern); a pass's own `SKILL.md` block should stay limited to persona, process, and whatever is genuinely unique to that pass (not already covered by a reference file it reads).
 
 ## Related Context

@@ -1,6 +1,6 @@
 # review-mobile-pr (skill)
 
-Owns the PR-review orchestration logic, all 7 review-pass prompts, and the platform review knowledge bases (`references/*.md`) — all in one file, `SKILL.md`. There are no separate agent files: every dispatched pass is a fresh general-purpose agent built from a prompt block in `SKILL.md`'s own "Review passes" section, not a named, independently-installed subagent.
+Owns the PR-review orchestration logic, all 6 review-pass prompts, and the platform review knowledge bases (`references/*.md`) — all in one file, `SKILL.md`. There are no separate agent files: every dispatched pass is a fresh general-purpose agent built from a prompt block in `SKILL.md`'s own "Review passes" section, not a named, independently-installed subagent.
 
 ## Entry Points
 
@@ -15,7 +15,8 @@ Owns the PR-review orchestration logic, all 7 review-pass prompts, and the platf
 - `engineering-excellence.md` "always applies, regardless of platform" — `SKILL.md` step 3 must always pass its path to the Code-Quality Reviewer pass, even on a PR that only touches one platform's files.
 - Version/date-specific facts in these files (Android API level, iOS/Xcode/Swift version, Compose Multiplatform version) are **verified-live facts, not evergreen prose** — when editing, confirm current values via WebSearch rather than assuming last year's numbers still hold. These files get stale on their own schedule, independent of the code they describe.
 - `SKILL.md`'s workflow steps are numbered 1–9 and cross-referenced by number from the Posting mode section, the Safety contract, the Fix mode section, and several steps themselves. Renumbering requires a repo-wide grep-and-fix, not a local edit.
-- `engineering-excellence.md`'s "Error handling standards" and "Test quality standards" sections are backstop-only, each carrying its own ownership note (Silent-Failure Hunter and Test Analyzer respectively) — `SKILL.md`'s Code-Quality Reviewer block points at this file for Parts 1–2 rather than restating them; don't let that duplication creep back in when either file changes.
+- `engineering-excellence.md`'s "Error handling standards" and "Test quality standards" sections are backstop-only, each carrying its own ownership note (Bug Hunter's error-handling lens and Test Analyzer respectively) — `SKILL.md`'s Code-Quality Reviewer block points at this file for Parts 1–2 rather than restating them; don't let that duplication creep back in when either file changes.
+- Every dispatched pass's prompt is built shared-context-first, pass-block-last (see `SKILL.md` step 3) so the diff sits in a byte-identical, cacheable prefix across all passes — this is a deliberate cost optimization on large PRs, not an arbitrary ordering choice.
 
 ## Patterns
 
@@ -27,7 +28,7 @@ Adding coverage for a new platform API/feature:
 
 ## Anti-patterns
 
-- Don't duplicate a check that a specific review pass already owns into these reference files' checklist bullets — test *coverage*/*quality* belongs to the Test Analyzer pass's own prompt, error handling to the Silent-Failure Hunter's, comment accuracy to the Comment Analyzer's, type-design invariants to the Type-Design Analyzer's. These reference files are the shared platform-knowledge backstop (read by the Code-Quality Reviewer and the Bug/Silent-Failure Hunter passes), not a place to re-litigate what a specialist pass already checks better.
+- Don't duplicate a check that a specific review pass already owns into these reference files' checklist bullets — test *coverage*/*quality* belongs to the Test Analyzer pass's own prompt, error handling to the Bug Hunter's error-handling lens, comment accuracy to the Comment Analyzer's, type-design invariants to the Type-Design Analyzer's. These reference files are the shared platform-knowledge backstop (read by the Code-Quality Reviewer and Bug Hunter passes), not a place to re-litigate what a specialist pass already checks better.
 - Don't invent a deprecation/version claim to fill out a table row — an unverified "fact" here produces a false positive on every PR that touches the flagged API.
 
 ## Related Context

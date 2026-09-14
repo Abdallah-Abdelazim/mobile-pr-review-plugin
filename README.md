@@ -7,12 +7,11 @@ Reviews Kotlin/Jetpack Compose/Gradle, Swift/SwiftUI/UIKit, and KMP code — inc
 ## What's inside
 
 - **1 skill** — `review-mobile-pr`, the orchestrator. Invoke it with a PR URL or number and it runs the whole review end to end.
-- **7 built-in review passes**, defined inline in the skill and dispatched in parallel, each a self-contained specialist:
+- **6 built-in review passes**, defined inline in the skill and dispatched in parallel, each a self-contained specialist:
 
   | Pass | Focus |
   |---|---|
-  | Bug Hunter | Correctness — forgotten call sites, unhappy paths, wrong/non-exhaustive logic, contract mismatches, concurrency bugs |
-  | Silent-Failure Hunter | Swallowed exceptions, unjustified fallbacks, overly broad catches |
+  | Bug Hunter | Correctness — forgotten call sites, unhappy paths, wrong/non-exhaustive logic, contract mismatches, concurrency bugs — plus a dedicated error-handling lens: swallowed exceptions, unjustified fallbacks, overly broad catches |
   | Code-Quality Reviewer | Code smells, dead/unused code, duplication, SOLID/naming/PR-scope, platform checklist backstop |
   | Deprecation Scanner | APIs deprecated/superseded/removed as of 2026 (Android 16/17 — API 36/37, Swift 6, iOS 17–26) |
   | Test Analyzer | Test coverage gaps and tests that don't exercise what they claim to |
@@ -21,7 +20,7 @@ Reviews Kotlin/Jetpack Compose/Gradle, Swift/SwiftUI/UIKit, and KMP code — inc
 
 Every pass reads a platform reference checklist matching the diff — `android.md`, `ios.md`, or `kmp.md` — the last of which includes a dedicated **Compose Multiplatform** section (shared Composables, `expect`/`actual` UI, CMP resources, cross-platform navigation, iOS `ComposeUIViewController` embedding).
 
-No separate agent files and no external dependency beyond the GitHub CLI — everything this skill needs, including every review pass's prompt, ships inline in this one skill. For a genuinely small, low-risk diff (a typo fix, a comment-only edit), it may review directly instead of dispatching all 7 passes — same findings, less overhead.
+No separate agent files and no external dependency beyond the GitHub CLI — everything this skill needs, including every review pass's prompt, ships inline in this one skill. For a genuinely small, low-risk diff (a typo fix, a comment-only edit), it may review directly instead of dispatching all 6 passes — same findings, less overhead.
 
 ## Install
 
