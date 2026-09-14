@@ -221,7 +221,7 @@ For a multi-line finding, add `"start_line": <first line>` and `"start_side": "R
 
 Each inline comment body should follow:
 
-```
+````
 <emoji> <SEVERITY>: <Short Title>
 
 **Issue**: <what is wrong and why — platform-specific where relevant>
@@ -232,7 +232,7 @@ Each inline comment body should follow:
 ```kotlin or ```swift
 <corrected code>
 ```
-```
+````
 
 **When the fix is a direct, single-line replacement** (missing default value, wrong import, unused line, trivial rename), use a GitHub suggestion block instead of a language code block. This lets the author apply the fix with one click:
 
