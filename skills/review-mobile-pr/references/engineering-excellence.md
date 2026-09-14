@@ -40,6 +40,8 @@ Applies to **every PR**, regardless of platform. Two parts: the code-smell scan 
 - **Long parameter lists** (> ~5) — group into a type
 - **Primitive obsession** on domain concepts crossing module boundaries (raw `String` for an ID/URL/phone that has a type or should)
 - **Inconsistency with the surrounding file** — new code that ignores the established pattern of the file it's in (different DI style, different error pattern) without stated reason
+- **Redundant/duplicated state** — two properties/state vars added by this diff that must always agree (a list plus a separately-tracked `isEmpty`/`count`, a raw value plus a cached formatted copy) instead of one held value and the other derived from it on read
+- **Efficiency smells, scoped to what this diff changed** — repeated work the diff could cache/hoist/share instead (recomputing the same value, re-parsing, re-fetching data already in scope); independent operations run sequentially with no data dependency between them where the diff could run them concurrently at negligible risk (parallel `launch`/`async` in a `coroutineScope`, `async let`/`withTaskGroup` in Swift, instead of back-to-back awaits). Flag only where the diff itself introduces or extends the shape — not a pre-existing pattern it merely touches in passing.
 
 ---
 
@@ -53,8 +55,11 @@ Applies to **every PR**, regardless of platform. Two parts: the code-smell scan 
 - **Interfaces honest**: an implementation that throws "not supported" for part of its protocol/interface signals a wrong abstraction
 - **Composition over inheritance** for new hierarchies; a new subclass overriding half its parent to negate behavior is a smell
 - **YAGNI**: speculative abstraction (a protocol/interface with one impl and no test seam need, a config option nothing sets) adds cost now for value never
+- **Leaky abstractions**: an internal implementation detail — a Room/Core Data entity, a raw network DTO, a platform-specific type — escaping through a public/domain-facing API instead of being mapped at the boundary, forcing callers to know about a layer they shouldn't
 
 ### Error handling standards
+
+*Backstop only — the Silent-Failure Hunter pass owns this territory with far more platform-specific depth; only act here on something it would clearly miss.*
 
 - Errors handled at the level that can act on them — not caught-and-logged at every layer
 - No empty catch blocks; no `catch` that converts a specific failure into a silent default without justification
@@ -77,6 +82,8 @@ Applies to **every PR**, regardless of platform. Two parts: the code-smell scan 
 - **Generated files** not hand-edited; lockfiles/`libs.versions.toml`/`Package.resolved` changes match the stated dependency change
 
 ### Test quality standards
+
+*Backstop only — the Test Analyzer pass owns this territory; only act here on a structural issue it wouldn't catch (e.g. wrong source-set placement).*
 
 - New behavior has tests; changed behavior has **changed** tests (a behavior change with zero test diff means the behavior wasn't covered — flag it)
 - Tests assert outcomes, not implementation details (over-mocked tests that verify call sequences break on every refactor)
